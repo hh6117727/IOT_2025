@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="ar">
 <head>
@@ -64,10 +63,10 @@
                         document.getElementById('user-id-display').textContent = `معرف المستخدم: ${currentUserId}`;
                         console.log("تم تسجيل دخول المستخدم:", currentUserId);
                         // بعد المصادقة، ابدأ في جلب البيانات
+                        // تم إزالة fetchSensorDataRealtime() لأننا سنعتمد على البيانات التاريخية لملء البطاقات
                         await fetchHistoricalSensorData();
                         await fetchAlertThresholds();
                         await fetchAlertLog();
-                        await fetchPredictiveAlerts(); // جلب تنبيهات الصيانة التنبؤية
                         // تمكين التحديث التلقائي افتراضيًا
                         toggleAutoRefresh(true);
                     } else {
@@ -163,7 +162,7 @@
                     "charts": "Charts",
                     "alert_log": "Alert Log",
                     "alert_threshold_settings": "Alert Threshold Settings",
-                    "predictive_maintenance_alerts": "Predictive Maintenance Alerts", // New translation
+                    "predictive_maintenance": "Predictive Maintenance", // New translation
                     "sensor_data_overview": "Sensor Data Overview",
                     "latest_sensor_readings": "Latest Sensor Readings",
                     "temperature": "Temperature",
@@ -273,13 +272,13 @@
                     "acceleration_data": "Acceleration Data",
                     "gyroscope_data": "Gyroscope Data",
                     "message": "Message",
-                    "no_pdm_alerts": "No predictive maintenance alerts available.", // New
-                    "equipment_affected": "Equipment Affected", // New
-                    "predicted_failure": "Predicted Failure", // New
-                    "estimated_time_to_failure": "Estimated Time to Failure", // New
-                    "pdm_alert_generated": "Predictive maintenance alert generated!", // New
-                    "pdm_alert_cleared": "Predictive maintenance alerts cleared!", // New
-                    "confirm_clear_pdm_alerts": "Are you sure you want to clear all predictive maintenance alerts?" // New
+                    "affected_equipment": "Affected Equipment",
+                    "predicted_fault": "Predicted Fault",
+                    "estimated_time_to_failure": "Estimated Time to Failure (ETF)",
+                    "severity_priority": "Severity/Priority",
+                    "relevant_data": "Relevant Data",
+                    "suggested_actions": "Suggested Actions",
+                    "no_predictive_alerts": "No predictive maintenance alerts at this time."
                 },
                 'ar': {
                     "dashboard": "لوحة التحكم",
@@ -288,7 +287,7 @@
                     "charts": "الرسوم البيانية",
                     "alert_log": "سجل التنبيهات",
                     "alert_threshold_settings": "إعدادات حدود التنبيه",
-                    "predictive_maintenance_alerts": "تنبيهات الصيانة التنبؤية", // ترجمة جديدة
+                    "predictive_maintenance": "الصيانة التنبؤية", // New translation
                     "sensor_data_overview": "نظرة عامة على بيانات المستشعر",
                     "latest_sensor_readings": "أحدث قراءات المستشعر",
                     "temperature": "درجة الحرارة",
@@ -398,13 +397,13 @@
                     "acceleration_data": "بيانات التسارع",
                     "gyroscope_data": "بيانات الجيروسكوب",
                     "message": "الرسالة",
-                    "no_pdm_alerts": "لا توجد تنبيهات صيانة تنبؤية متاحة.", // ترجمة جديدة
-                    "equipment_affected": "المعدات المتأثرة", // ترجمة جديدة
-                    "predicted_failure": "الفشل المتوقع", // ترجمة جديدة
-                    "estimated_time_to_failure": "الوقت المقدر للفشل", // ترجمة جديدة
-                    "pdm_alert_generated": "تم توليد تنبيه صيانة تنبؤية!", // ترجمة جديدة
-                    "pdm_alert_cleared": "تم مسح تنبيهات الصيانة التنبؤية!", // ترجمة جديدة
-                    "confirm_clear_pdm_alerts": "هل أنت متأكد أنك تريد مسح جميع تنبيهات الصيانة التنبؤية؟" // ترجمة جديدة
+                    "affected_equipment": "المعدات المتأثرة",
+                    "predicted_fault": "العطل المتوقع",
+                    "estimated_time_to_failure": "الوقت المقدر للفشل (ETF)",
+                    "severity_priority": "الخطورة / الأولوية",
+                    "relevant_data": "البيانات ذات الصلة",
+                    "suggested_actions": "الإجراءات المقترحة",
+                    "no_predictive_alerts": "لا توجد تنبيهات صيانة تنبؤية في الوقت الحالي."
                 },
                 'fr': {
                     "dashboard": "Tableau de bord",
@@ -413,7 +412,7 @@
                     "charts": "Graphiques",
                     "alert_log": "Historique des alertes",
                     "alert_threshold_settings": "Paramètres de seuil d'alerte",
-                    "predictive_maintenance_alerts": "Alertes de maintenance prédictive", // Nouvelle traduction
+                    "predictive_maintenance": "Maintenance Prédictive", // New translation
                     "sensor_data_overview": "Aperçu des données de capteur",
                     "latest_sensor_readings": "Dernières lectures de capteur",
                     "temperature": "Température",
@@ -523,13 +522,13 @@
                     "acceleration_data": "Données d'accélération",
                     "gyroscope_data": "Données de gyroscope",
                     "message": "Message",
-                    "no_pdm_alerts": "Aucune alerte de maintenance prédictive disponible.", // Nouvelle
-                    "equipment_affected": "Équipement affecté", // Nouvelle
-                    "predicted_failure": "Défaillance prévue", // Nouvelle
-                    "estimated_time_to_failure": "Temps estimé avant la défaillance", // Nouvelle
-                    "pdm_alert_generated": "Alerte de maintenance prédictive générée !", // Nouvelle
-                    "pdm_alert_cleared": "Alertes de maintenance prédictive effacées !", // Nouvelle
-                    "confirm_clear_pdm_alerts": "Êtes-vous sûr de vouloir effacer toutes les alertes de maintenance prédictive ?" // Nouvelle
+                    "affected_equipment": "Équipement affecté",
+                    "predicted_fault": "Défaut prédit",
+                    "estimated_time_to_failure": "Temps estimé avant la panne (ETF)",
+                    "severity_priority": "Sévérité/Priorité",
+                    "relevant_data": "Données pertinentes",
+                    "suggested_actions": "Actions suggérées",
+                    "no_predictive_alerts": "Aucune alerte de maintenance prédictive pour le moment."
                 }
             };
             return allTranslations[lang] || allTranslations['en']; // العودة إلى الإنجليزية كحل احتياطي
@@ -567,7 +566,7 @@
 
         /**
          * يغير اللغة ويحدث واجهة المستخدم.
-         * @param {string} lang - اللغة الجديدة.
+         * @param {string} lang - رمز اللغة (ar, en, fr).
          */
         async function changeLanguage(lang) {
             currentLanguage = lang;
@@ -580,7 +579,7 @@
             renderFullTable(currentFullTableData); // أعد عرض الجدول باللغة الجديدة
             renderChart(); // أعد رسم المخطط باللغة الجديدة
             renderAlertLogTable(); // أعد عرض سجل التنبيهات
-            renderPredictiveAlerts(); // أعد عرض تنبيهات الصيانة التنبؤية
+            renderPredictiveMaintenanceAlerts(); // تحديث تنبيهات الصيانة التنبؤية
             showNotification(translations['language_changed_to'] + (lang === 'ar' ? ' العربية' : lang === 'en' ? ' الإنجليزية' : ' الفرنسية'), "success");
         }
 
@@ -724,20 +723,7 @@
             "Accélération Z": "G",
             "Gyroscope X": "deg/s",
             "Gyroscope Y": "deg/s",
-            "Gyroscope Z": "deg/s",
-            // Internal sensor type keys for translations
-            "temperature": "°C",
-            "humidity": "%",
-            "vibration": "G",
-            "ntc_temp": "°C",
-            "current": "A",
-            "battery_voltage": "V",
-            "acceleration_x": "G",
-            "acceleration_y": "G",
-            "acceleration_z": "G",
-            "gyro_x": "deg/s",
-            "gyro_y": "deg/s",
-            "gyro_z": "deg/s"
+            "Gyroscope Z": "deg/s"
         };
 
 
@@ -747,7 +733,10 @@
         async function fetchHistoricalSensorData() {
             showNotification(translations['fetching_historical_data'], "info");
             const loadingOverlay = document.getElementById('loading-overlay'); // Changed to loadingOverlay
-            loadingOverlay.classList.remove('hidden'); // إظهار مؤشر التحميل
+            if (loadingOverlay) { // Check if element exists
+                loadingOverlay.classList.remove('hidden'); // إظهار مؤشر التحميل
+            }
+
 
             try {
                 const response = await fetch(GOOGLE_SHEETS_API_URL);
@@ -815,8 +804,6 @@
                     };
                     // Check for alerts with the latest data
                     checkAlerts(latestRecord);
-                    // Check for predictive alerts
-                    checkPredictiveAlerts();
                 }
 
                 updateDashboardCards();
@@ -829,7 +816,9 @@
                 console.error("خطأ في جلب البيانات التاريخية ومعالجتها:", error);
                 showNotification(`خطأ في البيانات التاريخية: ${error.message}`, "error");
             } finally {
-                loadingOverlay.classList.add('hidden'); // إخفاء مؤشر التحميل
+                if (loadingOverlay) { // Check if element exists
+                    loadingOverlay.classList.add('hidden'); // إخفاء مؤشر التحميل
+                }
             }
         }
 
@@ -850,7 +839,7 @@
                 { key: "Date", label: "Date" },
                 { key: "Heure", label: "Heure" },
                 { key: "Température (°C)", label: translations['temperature'] + ' (°C)' },
-                { key: "Humidité (%)", label: translations['humidity'] + ' (%)' },
+                { key: "Humidité (%)", label: translations['humidity'] + ' (%))' },
                 { key: "Accélération X", label: translations['acceleration_x'] },
                 { key: "Accélération Y", label: translations['acceleration_y'] },
                 { key: "Accélération Z", label: translations['acceleration_z'] },
@@ -992,7 +981,7 @@
         }
 
         // --- منطق الجدول الكامل مع التصفية والترحيل ---
-        let rowsPerPage = 10;
+        const rowsPerPage = 10;
         let currentPage = 1;
         let filteredTableData = [];
 
@@ -1029,15 +1018,6 @@
                 const endDateTime = new Date(`${endDateInput}T${endTimeInput}`);
                 tempFilteredData = tempFilteredData.filter(d => d.timestamp <= endDateTime);
             }
-
-            // تصفية حسب نوع المستشعر (إذا كنت لا تزال ترغب في هذا النوع من التصفية)
-            // ملاحظة: مع هيكل البيانات الجديد، تحتاج إلى تعديل هذا إذا كنت تريد التصفية بناءً على أنواع مستشعرات فردية
-            // For now, it's commented out as per the new table structure.
-            /*
-            if (sensorTypeFilter && sensorTypeFilter !== 'all') {
-                tempFilteredData = tempFilteredData.filter(d => d.sensorType === sensorTypeFilter);
-            }
-            */
 
             // تصفية حسب البحث في النص
             if (searchInput) {
@@ -1103,7 +1083,7 @@
             const paginatedData = filteredTableData.slice(startIndex, endIndex);
 
             if (paginatedData.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="15" class="px-6 py-4 text-center text-gray-500">${translations['no_data_available']}</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="12" class="px-6 py-4 text-center text-gray-500">${translations['no_data_available']}</td></tr>`;
                 return;
             }
 
@@ -1218,7 +1198,9 @@
 
             showNotification(translations['exporting_pdf'], "info");
             const loadingOverlay = document.getElementById('loading-overlay');
-            loadingOverlay.classList.remove('hidden'); // Show loading overlay
+            if (loadingOverlay) { // Check if element exists
+                loadingOverlay.classList.remove('hidden'); // Show loading overlay
+            }
 
             const input = document.getElementById('full-table-container'); // العنصر الذي تريد تصديره
             // التأكد من أن جميع البيانات مرئية قبل التقاط الصورة إذا كان الجدول مخفياً بالترحيل
@@ -1265,7 +1247,9 @@
                 rowsPerPage = originalRowsPerPage;
                 currentPage = originalCurrentPage;
                 displayCurrentPageTable();
-                loadingOverlay.classList.add('hidden'); // Hide loading overlay
+                if (loadingOverlay) { // Check if element exists
+                    loadingOverlay.classList.add('hidden'); // Hide loading overlay
+                }
             }
         }
 
@@ -1573,7 +1557,6 @@
         const defaultAlertThresholds = JSON.parse(JSON.stringify(alertThresholds)); // نسخة احتياطية
 
         let alertLogData = [];
-        let predictiveAlertLogData = []; // New array for predictive alerts
 
         /**
          * يجلب حدود التنبيه المحفوظة من Firebase Firestore.
@@ -1715,17 +1698,16 @@
                 const internalSensorType = sensorMappings[sheetColumn];
                 const valueToCheck = sensorData[sheetColumn];
 
-                if (valueToCheck !== undefined && valueToCheck !== null && !isNaN(valueToCheck)) {
+                if (valueToCheck !== undefined && !isNaN(valueToCheck)) {
                     const status = getSensorStatus(internalSensorType, parseFloat(valueToCheck));
                     if (status === 'warning' || status === 'critical') {
                         const newAlert = {
                             timestamp: new Date().toISOString(),
                             sensorType: internalSensorType, // Use the internal sensor type key
                             value: parseFloat(valueToCheck),
-                            unit: sensorUnitsMapping[internalSensorType] || '', // Get unit from mapping
+                            unit: sensorUnitsMapping[sheetColumn] || '', // Get unit from mapping
                             severity: status,
-                            message: `${translations['alert']}! ${translations[internalSensorType] || internalSensorType} ${parseFloat(valueToCheck).toFixed(2)}${sensorUnitsMapping[internalSensorType] || ''}. ${translations['status_is']} ${translations[status]}.`,
-                            deviceId: sensorData.deviceId || translations['unknown']
+                            message: `${translations['alert']}! ${translations[internalSensorType] || internalSensorType} ${parseFloat(valueToCheck).toFixed(2)}${sensorUnitsMapping[sheetColumn] || ''}. ${translations['status_is']} ${translations[status]}.`
                         };
                         showNotification(newAlert.message, status); // عرض إشعار في التطبيق
                         // إضافة التنبيه إلى Firestore
@@ -1865,197 +1847,79 @@
             });
         }
 
-        // --- منطق الصيانة التنبؤية (Predictive Maintenance) ---
-
-        /**
-         * يتحقق من وجود تنبيهات صيانة تنبؤية بناءً على تحليل الاتجاهات.
-         * هذا تطبيق مبسط للمفهوم.
-         */
-        async function checkPredictiveAlerts() {
-            if (!db || !currentUserId || currentFullTableData.length === 0) return;
-
-            const TREND_LOOKBACK_COUNT = 10; // عدد القراءات الأخيرة للنظر في الاتجاه
-            const TREND_THRESHOLD_FACTOR = 0.1; // عامل لتحديد ما إذا كان الاتجاه "كبيرًا" (10% من نطاق التحذير)
-
-            const sensorMappings = {
-                "Température (°C)": "temperature",
-                "Humidité (%)": "humidity",
-                "Vibration": "vibration",
-                "Temp. NTC (°C)": "ntc_temp",
-                "Courant (V Bruts)": "current",
-                "Batterie (V)": "battery_voltage",
-                "Accélération X": "acceleration_x",
-                "Accélération Y": "acceleration_y",
-                "Accéléation Z": "acceleration_z",
-                "Gyroscope X": "gyro_x",
-                "Gyroscope Y": "gyro_y",
-                "Gyroscope Z": "gyro_z"
-            };
-
-            const newPredictiveAlerts = [];
-
-            for (const sheetColumn in sensorMappings) {
-                const internalSensorType = sensorMappings[sheetColumn];
-                const thresholds = alertThresholds[internalSensorType];
-
-                if (!thresholds) continue;
-
-                // الحصول على أحدث قراءات TREND_LOOKBACK_COUNT لهذا المستشعر
-                const recentReadings = currentFullTableData
-                    .filter(record => record[sheetColumn] !== undefined && record[sheetColumn] !== null && !isNaN(record[sheetColumn]))
-                    .slice(0, TREND_LOOKBACK_COUNT)
-                    .map(record => parseFloat(record[sheetColumn]));
-
-                if (recentReadings.length < TREND_LOOKBACK_COUNT) continue; // لا توجد بيانات كافية للاتجاه
-
-                const firstValue = recentReadings[recentReadings.length - 1]; // أقدم قيمة في النطاق
-                const lastValue = recentReadings[0]; // أحدث قيمة في النطاق
-                const change = lastValue - firstValue;
-
-                const warningRange = thresholds.warning.max - thresholds.warning.min;
-                const criticalRange = thresholds.critical.max - thresholds.critical.min;
-
-                let predictedIssue = null;
-                let severity = 'normal';
-
-                // تحقق من الاتجاه نحو الحد الأقصى
-                if (change > (warningRange * TREND_THRESHOLD_FACTOR) && lastValue > thresholds.normal.max) {
-                    predictedIssue = `قيمة ${translations[internalSensorType] || internalSensorType} ترتفع باستمرار، تقترب من حد التحذير/الحرج.`;
-                    severity = 'warning';
-                    if (lastValue > thresholds.warning.max) {
-                        severity = 'critical';
-                        predictedIssue = `قيمة ${translations[internalSensorType] || internalSensorType} ترتفع بشكل حرج، قد تؤدي إلى فشل وشيك.`;
-                    }
-                }
-                // تحقق من الاتجاه نحو الحد الأدنى
-                else if (change < -(warningRange * TREND_THRESHOLD_FACTOR) && lastValue < thresholds.normal.min) {
-                    predictedIssue = `قيمة ${translations[internalSensorType] || internalSensorType} تنخفض باستمرار، تقترب من حد التحذير/الحرج.`;
-                    severity = 'warning';
-                    if (lastValue < thresholds.warning.min) {
-                        severity = 'critical';
-                        predictedIssue = `قيمة ${translations[internalSensorType] || internalSensorType} تنخفض بشكل حرج، قد تؤدي إلى فشل وشيك.`;
-                    }
-                }
-
-                if (predictedIssue) {
-                    const existingAlert = predictiveAlertLogData.find(alert =>
-                        alert.sensorType === internalSensorType && alert.severity === severity &&
-                        Math.abs(new Date(alert.timestamp).getTime() - new Date().getTime()) < (5 * 60 * 1000) // خلال 5 دقائق
-                    );
-
-                    if (!existingAlert) {
-                        const newPdMAlert = {
-                            timestamp: new Date().toISOString(),
-                            sensorType: internalSensorType,
-                            predictedIssue: predictedIssue,
-                            severity: severity,
-                            deviceId: currentFullTableData[0].deviceId || translations['unknown'],
-                            estimatedTimeToFailure: "غير متوفر (يتطلب ML متقدم)" // Placeholder for future ML integration
-                        };
-                        newPredictiveAlerts.push(newPdMAlert);
-                        showNotification(translations['pdm_alert_generated'], severity);
-
-                        // إضافة التنبيه التنبؤي إلى Firestore
-                        if (db && currentUserId) {
-                            try {
-                                await addDoc(collection(db, `artifacts/${__app_id}/users/${currentUserId}/predictiveAlertLog`), newPdMAlert);
-                            } catch (error) {
-                                console.error("خطأ في حفظ التنبيه التنبؤي إلى Firestore:", error);
-                            }
-                        }
-                    }
-                }
+        // --- منطق الصيانة التنبؤية ---
+        // Dummy data for predictive maintenance alerts
+        let predictiveMaintenanceAlerts = [
+            {
+                id: 'pm-001',
+                equipment: 'Motor A',
+                predictedFault: 'Bearing Overheating',
+                etf: '7 days',
+                severity: 'critical',
+                relevantData: 'temperature, vibration',
+                suggestedActions: 'Inspect bearings, lubricate or replace.'
+            },
+            {
+                id: 'pm-002',
+                equipment: 'Pump B',
+                predictedFault: 'Increased Vibration',
+                etf: '15 days',
+                severity: 'warning',
+                relevantData: 'vibration, current',
+                suggestedActions: 'Check pump alignment, balance impeller.'
+            },
+            {
+                id: 'pm-003',
+                equipment: 'Fan C',
+                predictedFault: 'Unusual Current Draw',
+                etf: '30 days',
+                severity: 'normal', // Can be "normal" if it's an early, low-priority prediction
+                relevantData: 'current, battery_voltage',
+                suggestedActions: 'Monitor motor current, check for blockages.'
             }
-        }
+        ];
 
         /**
-         * يجلب سجل تنبيهات الصيانة التنبؤية من Firebase Firestore في الوقت الفعلي.
+         * يعرض تنبيهات الصيانة التنبؤية.
          */
-        async function fetchPredictiveAlerts() {
-            if (!db || !currentUserId) return;
-            const pdmAlertsCollectionRef = collection(db, `artifacts/${__app_id}/users/${currentUserId}/predictiveAlertLog`);
+        function renderPredictiveMaintenanceAlerts() {
+            const container = document.getElementById('predictive-maintenance-alerts-container');
+            container.innerHTML = ''; // مسح المحتوى الحالي
 
-            onSnapshot(query(pdmAlertsCollectionRef, orderBy('timestamp', 'desc')), (snapshot) => {
-                predictiveAlertLogData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderPredictiveAlerts();
-            }, (error) => {
-                console.error("خطأ في جلب سجل تنبيهات الصيانة التنبؤية:", error);
-                showNotification(`خطأ في تنبيهات الصيانة التنبؤية: ${error.message}`, "error");
-            });
-        }
-
-        /**
-         * يعرض تنبيهات الصيانة التنبؤية في القسم المخصص.
-         */
-        function renderPredictiveAlerts() {
-            const pdmAlertsContainer = document.getElementById('pdm-alerts-container');
-            pdmAlertsContainer.innerHTML = ''; // مسح المحتوى الحالي
-
-            if (predictiveAlertLogData.length === 0) {
-                pdmAlertsContainer.innerHTML = `<p class="text-gray-400 text-center">${translations['no_pdm_alerts']}</p>`;
+            if (predictiveMaintenanceAlerts.length === 0) {
+                container.innerHTML = `<p class="text-gray-400">${translations['no_predictive_alerts']}</p>`;
                 return;
             }
 
-            predictiveAlertLogData.forEach(alert => {
-                const alertCard = document.createElement('div');
-                let bgColor = '';
-                let textColor = '';
+            predictiveMaintenanceAlerts.forEach(alert => {
+                const card = document.createElement('div');
+                card.className = `glassmorphism-card p-5 rounded-lg shadow-md mb-4`;
+
+                let severityColor = '';
                 switch (alert.severity) {
-                    case 'warning':
-                        bgColor = 'bg-yellow-800';
-                        textColor = 'text-yellow-300';
-                        break;
                     case 'critical':
-                        bgColor = 'bg-red-800';
-                        textColor = 'text-red-300';
+                        severityColor = 'border-red-500';
+                        break;
+                    case 'warning':
+                        severityColor = 'border-yellow-500';
                         break;
                     default:
-                        bgColor = 'bg-gray-700';
-                        textColor = 'text-gray-300';
+                        severityColor = 'border-blue-500'; // For 'normal' or 'info' predictive alerts
                 }
 
-                alertCard.className = `${bgColor} p-4 rounded-lg shadow-md mb-4 flex flex-col space-y-2`;
-                alertCard.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <span class="text-lg font-semibold ${textColor}">${translations[alert.severity] || alert.severity} ${translations['alert']}</span>
-                        <span class="text-sm text-gray-400">${new Date(alert.timestamp).toLocaleString(currentLanguage)}</span>
+                card.classList.add(severityColor); // Add border color based on severity
+
+                card.innerHTML = `
+                    <h4 class="text-xl font-bold mb-3 text-white">${alert.equipment} - ${translations[alert.predictedFault] || alert.predictedFault}</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-300">
+                        <p><strong>${translations['estimated_time_to_failure']}:</strong> ${alert.etf}</p>
+                        <p><strong>${translations['severity_priority']}:</strong> <span class="${getStatusColorClass(alert.severity)} font-semibold">${translations[alert.severity] || alert.severity}</span></p>
+                        <p><strong>${translations['relevant_data']}:</strong> ${alert.relevantData}</p>
+                        <p><strong>${translations['suggested_actions']}:</strong> ${alert.suggestedActions}</p>
                     </div>
-                    <p class="text-white text-md">
-                        <span class="font-medium">${translations['equipment_affected']}:</span> ${alert.deviceId}
-                    </p>
-                    <p class="text-white text-md">
-                        <span class="font-medium">${translations['predicted_failure']}:</span> ${alert.predictedIssue}
-                    </p>
-                    <p class="text-white text-sm">
-                        <span class="font-medium">${translations['estimated_time_to_failure']}:</span> ${alert.estimatedTimeToFailure}
-                    </p>
                 `;
-                pdmAlertsContainer.appendChild(alertCard);
+                container.appendChild(card);
             });
-        }
-
-        /**
-         * يمسح جميع تنبيهات الصيانة التنبؤية من Firestore.
-         */
-        async function clearPredictiveAlerts() {
-            if (!db || !currentUserId) return;
-            if (!window.confirm(translations['confirm_clear_pdm_alerts'])) {
-                return;
-            }
-
-            const pdmAlertsCollectionRef = collection(db, `artifacts/${__app_id}/users/${currentUserId}/predictiveAlertLog`);
-            try {
-                const querySnapshot = await getDocs(pdmAlertsCollectionRef);
-                const deletePromises = [];
-                querySnapshot.forEach(docToDelete => {
-                    deletePromises.push(deleteDoc(docToDelete.ref));
-                });
-                await Promise.all(deletePromises);
-                showNotification(translations['pdm_alert_cleared'], "success");
-            } catch (error) {
-                console.error("خطأ في مسح تنبيهات الصيانة التنبؤية:", error);
-                showNotification(`خطأ في مسح تنبيهات الصيانة التنبؤية: ${error.message}`, "error");
-            }
         }
 
 
@@ -2070,14 +1934,13 @@
 
             // ربط المستمعين بالأحداث
             document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
-            document.getElementById('sidebar-toggle-mobile').addEventListener('click', toggleSidebar);
             document.getElementById('nav-dashboard').addEventListener('click', () => showSection('dashboard-section'));
             document.getElementById('nav-accel-gyro').addEventListener('click', () => showSection('accel-gyro-section'));
             document.getElementById('nav-full-table').addEventListener('click', () => showSection('full-table-section'));
             document.getElementById('nav-charts').addEventListener('click', () => showSection('charts-section'));
             document.getElementById('nav-alert-log').addEventListener('click', () => showSection('alert-log-section'));
             document.getElementById('nav-alert-settings').addEventListener('click', () => showSection('alert-settings-section'));
-            document.getElementById('nav-pdm-alerts').addEventListener('click', () => showSection('pdm-alerts-section')); // New event listener
+            document.getElementById('nav-predictive-maintenance').addEventListener('click', () => showSection('predictive-maintenance-section')); // New nav item
 
             // لوحة التحكم
             document.getElementById('generate-insight-btn').addEventListener('click', generateInsight);
@@ -2114,8 +1977,6 @@
             document.getElementById('reset-chart-selections-btn').addEventListener('click', resetChartSelections);
 
             // إضافة معالجات الأحداث لأزرار "View Chart"
-            // These buttons are now more complex as they need to select specific columns from the raw data
-            // You might need to adjust the logic for how these buttons map to the new table structure.
             document.getElementById('view-accel-x-chart-btn').addEventListener('click', () => {
                 showSection('charts-section');
                 selectedChartSensors = ['Accélération X']; // Use the actual column header
@@ -2158,9 +2019,6 @@
             document.getElementById('save-thresholds-btn').addEventListener('click', saveAlertThresholds);
             document.getElementById('reset-thresholds-btn').addEventListener('click', resetAlertThresholds);
 
-            // Predictive Maintenance Alerts
-            document.getElementById('clear-pdm-alerts-btn').addEventListener('click', clearPredictiveAlerts); // New event listener
-
             // مبدل اللغة
             document.getElementById('lang-select').addEventListener('change', (e) => changeLanguage(e.target.value));
 
@@ -2169,6 +2027,7 @@
             initChart(); // تهيئة Chart.js هنا لمرة واحدة
             showSection('dashboard-section'); // عرض لوحة التحكم الافتراضية
             populateAlertLogFilters(); // ملء فلاتر سجل التنبيهات
+            renderPredictiveMaintenanceAlerts(); // عرض تنبيهات الصيانة التنبؤية
         };
     </script>
     <style>
@@ -2235,7 +2094,7 @@
 <body class="bg-gray-900 text-white flex min-h-screen">
 
     <!-- Notification Container -->
-    <div id="notification-container" class="fixed top-4 left-4 space-y-2 z-[1001]"></div>
+    <div id="notification-container" class="space-y-2"></div>
 
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay hidden">
@@ -2244,7 +2103,7 @@
     </div>
 
     <!-- Sidebar -->
-    <aside id="sidebar" class="fixed inset-y-0 right-0 w-64 bg-gray-800 p-6 z-40 md:relative md:-translate-x-full transition-transform duration-300 ease-in-out shadow-lg">
+    <aside id="sidebar" class="fixed inset-y-0 right-0 w-64 bg-gray-800 p-6 z-40 md:relative md:translate-x-0 transition-transform duration-300 ease-in-out shadow-lg">
         <div class="flex items-center justify-between mb-8">
             <h1 class="text-2xl font-bold text-blue-400" data-i18n="iot_project_2025">مشروع إنترنت الأشياء 2025</h1>
             <button id="sidebar-toggle" class="md:hidden text-gray-400 hover:text-white focus:outline-none">
@@ -2284,8 +2143,8 @@
                     </button>
                 </li>
                 <li class="mb-4">
-                    <button id="nav-pdm-alerts" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
-                        <i class="fas fa-cogs ml-3"></i> <span data-i18n="predictive_maintenance_alerts">تنبيهات الصيانة التنبؤية</span>
+                    <button id="nav-predictive-maintenance" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
+                        <i class="fas fa-tools ml-3"></i> <span data-i18n="predictive_maintenance">الصيانة التنبؤية</span>
                     </button>
                 </li>
             </ul>
@@ -2293,18 +2152,18 @@
         <div class="mt-8 border-t border-gray-700 pt-4">
             <h3 class="text-gray-400 text-sm mb-2" data-i18n="language">اللغة</h3>
             <select id="lang-select" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
-                <option value="ar" selected>العربية</option>
-                <option value="en">English</option>
-                <option value="fr">Français</option>
+                <option value="ar" data-i18n="arabic">العربية</option>
+                <option value="en" data-i18n="english">English</option>
+                <option value="fr" data-i18n="french">Français</option>
             </select>
         </div>
         <div class="mt-4 text-sm text-gray-400">
-            <p id="user-id-display" class="break-words">معرف المستخدم: تحميل...</p>
+            <p id="user-id-display" data-i18n="user_id_placeholder">معرف المستخدم: تحميل...</p>
         </div>
     </aside>
 
     <!-- Main Content -->
-    <main id="main-content" class="flex-1 p-8 md:ml-0 transition-all duration-300 ease-in-out overflow-y-auto">
+    <main id="main-content" class="flex-1 p-8 md:ml-64 transition-all duration-300 ease-in-out overflow-y-auto">
         <button id="sidebar-toggle-mobile" class="md:hidden fixed top-4 right-4 z-50 p-3 rounded-full bg-blue-600 text-white shadow-lg focus:outline-none">
             <i class="fas fa-bars"></i>
         </button>
@@ -2396,7 +2255,7 @@
                 <button id="auto-refresh-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                     <i class="fas fa-play ml-2"></i> <span data-i18n="enable_auto_refresh">تفعيل التحديث التلقائي</span>
                 </button>
-                
+                <p id="user-id-display" class="text-gray-400 text-sm" data-i18n="user_id_placeholder">معرف المستخدم: تحميل...</p>
             </div>
         </section>
 
@@ -2512,7 +2371,7 @@
                     </div>
                     <div>
                         <label for="search-table" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="search_table">بحث في الجدول...</label>
-                        <input type="text" id="search-table" data-i18n-placeholder="search_table" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        <input type="text" id="search-table" placeholder="بحث..." class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                     </div>
                 </div>
                 <div class="mb-4">
@@ -2557,7 +2416,7 @@
                 <!-- Pagination Controls -->
                 <div class="flex justify-between items-center mt-6">
                     <button id="prev-page-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" data-i18n="previous">السابق</button>
-                    <span id="page-info" class="text-gray-300">صفحة 1 من 1</span>
+                    <span id="page-info" class="text-gray-300" data-i18n="page_info_placeholder">صفحة 1 من 1</span>
                     <button id="next-page-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" data-i18n="next">التالي</button>
                 </div>
 
@@ -2590,9 +2449,9 @@
 
                 <!-- Chart Statistics -->
                 <div class="flex justify-around items-center bg-gray-800 p-4 rounded-lg shadow-md text-lg font-semibold">
-                    <span id="chart-stats-min">الحد الأدنى: N/A</span>
-                    <span id="chart-stats-max">الحد الأقصى: N/A</span>
-                    <span id="chart-stats-avg">المتوسط: N/A</span>
+                    <span id="chart-stats-min" data-i18n="min_placeholder">الحد الأدنى: N/A</span>
+                    <span id="chart-stats-max" data-i18n="max_placeholder">الحد الأقصى: N/A</span>
+                    <span id="chart-stats-avg" data-i18n="avg_placeholder">المتوسط: N/A</span>
                 </div>
             </div>
         </section>
@@ -2845,7 +2704,7 @@
                             <input type="number" step="0.1" id="acceleration_z-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
-                     <!-- Gyroscope X -->
+                    <!-- Gyro X -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
                         <h4 class="text-lg font-bold mb-4" data-i18n="gyro_x">جيروسكوب س</h4>
                         <div class="grid grid-cols-3 gap-4">
@@ -2854,20 +2713,20 @@
                             <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
 
                             <span class="text-green-400" data-i18n="normal">عادي</span>
-                            <input type="number" step="1" id="gyro_x-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <input type="number" step="1" id="gyro_x-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_x-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_x-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
                             <span class="text-yellow-400" data-i18n="warning">تحذير</span>
-                            <input type="number" step="1" id="gyro_x-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <input type="number" step="1" id="gyro_x-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_x-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_x-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
                             <span class="text-red-400" data-i18n="critical">حرج</span>
-                            <input type="number" step="1" id="gyro_x-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <input type="number" step="1" id="gyro_x-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_x-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_x-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
-                     <!-- Gyroscope Y -->
-                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                    <!-- Gyro Y -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
                         <h4 class="text-lg font-bold mb-4" data-i18n="gyro_y">جيروسكوب ص</h4>
                         <div class="grid grid-cols-3 gap-4">
                             <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
@@ -2875,20 +2734,20 @@
                             <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
 
                             <span class="text-green-400" data-i18n="normal">عادي</span>
-                            <input type="number" step="1" id="gyro_y-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <input type="number" step="1" id="gyro_y-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_y-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_y-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
                             <span class="text-yellow-400" data-i18n="warning">تحذير</span>
-                            <input type="number" step="1" id="gyro_y-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <input type="number" step="1" id="gyro_y-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_y-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_y-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
                             <span class="text-red-400" data-i18n="critical">حرج</span>
-                            <input type="number" step="1" id="gyro_y-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <input type="number" step="1" id="gyro_y-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_y-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_y-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
-                     <!-- Gyroscope Z -->
-                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                    <!-- Gyro Z -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
                         <h4 class="text-lg font-bold mb-4" data-i18n="gyro_z">جيروسكوب ع</h4>
                         <div class="grid grid-cols-3 gap-4">
                             <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
@@ -2896,44 +2755,40 @@
                             <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
 
                             <span class="text-green-400" data-i18n="normal">عادي</span>
-                            <input type="number" step="1" id="gyro_z-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <input type="number" step="1" id="gyro_z-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_z-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_z-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
                             <span class="text-yellow-400" data-i18n="warning">تحذير</span>
-                            <input type="number" step="1" id="gyro_z-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <input type="number" step="1" id="gyro_z-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_z-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_z-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
                             <span class="text-red-400" data-i18n="critical">حرج</span>
-                            <input type="number" step="1" id="gyro_z-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <input type="number" step="1" id="gyro_z-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_z-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_z-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
-
+                    <!-- End Sensor Threshold Template -->
                 </div>
 
-                <div class="flex justify-end gap-4 mt-8">
-                    <button id="reset-thresholds-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-colors duration-200" data-i18n="reset_to_defaults">إعادة تعيين إلى الافتراضيات</button>
-                    <button id="save-thresholds-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-colors duration-200" data-i18n="save_changes">حفظ التغييرات</button>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button id="save-thresholds-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="save_changes">حفظ التغييرات</button>
+                    <button id="reset-thresholds-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="reset_to_defaults">إعادة تعيين إلى الافتراضيات</button>
                 </div>
             </div>
         </section>
 
-        <!-- Predictive Maintenance Alerts Section -->
-        <section id="pdm-alerts-section" class="content-section hidden">
-            <h2 class="text-3xl font-bold mb-8" data-i18n="predictive_maintenance_alerts">تنبيهات الصيانة التنبؤية</h2>
+        <!-- Predictive Maintenance Section (NEW) -->
+        <section id="predictive-maintenance-section" class="content-section hidden">
+            <h2 class="text-3xl font-bold mb-8" data-i18n="predictive_maintenance">الصيانة التنبؤية</h2>
             <div class="glassmorphism-card p-6 rounded-xl mb-8">
-                <div class="flex justify-end mb-4">
-                     <button id="clear-pdm-alerts-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="clear_alert_log">مسح التنبيهات</button>
-                </div>
-                <div id="pdm-alerts-container" class="space-y-4">
-                    <!-- Predictive alerts will be populated here by JavaScript -->
-                    <p class="text-gray-400 text-center" data-i18n="no_pdm_alerts">لا توجد تنبيهات صيانة تنبؤية متاحة.</p>
+                <h3 class="text-xl font-semibold mb-6">تنبيهات الصيانة التنبؤية</h3>
+                <div id="predictive-maintenance-alerts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Predictive maintenance alerts will be populated here by JavaScript -->
+                    <p class="text-gray-400" data-i18n="no_predictive_alerts">لا توجد تنبيهات صيانة تنبؤية في الوقت الحالي.</p>
                 </div>
             </div>
         </section>
-        
-    </main>
 
+    </main>
 </body>
 </html>
-```
