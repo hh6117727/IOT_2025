@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="en"> <!-- Changed to English as default language -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة تحكم بيانات المستشعر - PROJET IOT 2025</title>
+    <title>Sensor Data Dashboard - IOT PROJECT 2025</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -18,37 +18,37 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Firebase SDKs -->
     <script type="module">
-        // استيراد وحدات Firebase الضرورية
+        // Import necessary Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // تعريف المتغيرات العامة لـ Firebase والبيانات
+        // Define global variables for Firebase and data
         let app;
         let db;
         let auth;
-        let currentUserId = 'default-user'; // سيتم تحديثه بعد المصادقة
-        let autoRefreshInterval; // لآلية التحديث التلقائي
-        let currentLanguage = 'ar'; // اللغة الافتراضية
-        let translations = {}; // لتخزين ملفات الترجمة
+        let currentUserId = 'default-user'; // Will be updated after authentication
+        let autoRefreshInterval; // For automatic refresh mechanism
+        let currentLanguage = 'en'; // Default language set to English
+        let translations = {}; // To store translation files
 
-        // عنوان URL لواجهة برمجة تطبيقات Google Sheets Scripts
+        // URL for Google Sheets Scripts API
         const GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/AKfycbxO7soutfxNmG1Vy6KvuZ4ZS96qWg9nJouY-vjvKt3_i-kQh4wa3hBbU0-vuqgU8jF02g/exec";
-        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=`; // مفتاح API سيتم توفيره في وقت التشغيل
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=`; // API key will be provided at runtime
 
-        // تعريف مفتاح API (سيتم توفيره تلقائيًا في بيئة Canvas)
-        const apiKey = ""; // اترك هذا فارغًا، سيتم توفيره تلقائيًا
+        // Define API key (will be provided automatically in Canvas environment)
+        const apiKey = ""; // Leave this blank, it will be provided automatically
 
-        // تهيئة Firebase
+        // Initialize Firebase
         const initializeFirebase = async () => {
             try {
-                // تحقق مما إذا كانت المتغيرات سرايا (globally defined)
+                // Check if variables are globally defined
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 
                 if (Object.keys(firebaseConfig).length === 0) {
-                    console.error("خطأ: لم يتم توفير تهيئة Firebase.");
-                    showNotification("خطأ في تهيئة Firebase", "critical");
+                    console.error("Error: Firebase configuration not provided.");
+                    showNotification("Firebase configuration error", "critical");
                     return;
                 }
 
@@ -56,42 +56,41 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // الاستماع إلى تغييرات حالة المصادقة
+                // Listen for authentication state changes
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         currentUserId = user.uid;
-                        document.getElementById('user-id-display').textContent = `معرف المستخدم: ${currentUserId}`;
-                        console.log("تم تسجيل دخول المستخدم:", currentUserId);
-                        // بعد المصادقة، ابدأ في جلب البيانات
-                        // تم إزالة fetchSensorDataRealtime() لأننا سنعتمد على البيانات التاريخية لملء البطاقات
+                        document.getElementById('user-id-display').textContent = `User ID: ${currentUserId}`;
+                        console.log("User logged in:", currentUserId);
+                        // After authentication, start fetching data
                         await fetchHistoricalSensorData();
                         await fetchAlertThresholds();
                         await fetchAlertLog();
-                        // تمكين التحديث التلقائي افتراضيًا
+                        // Enable auto-refresh by default
                         toggleAutoRefresh(true);
                     } else {
-                        // تسجيل الدخول كمجهول إذا لم يتم توفير رمز مميز
+                        // Sign in anonymously if no custom token is provided
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(auth, __initial_auth_token);
-                            console.log("تم تسجيل الدخول باستخدام الرمز المميز المخصص.");
+                            console.log("Signed in with custom token.");
                         } else {
                             await signInAnonymously(auth);
-                            console.log("تم تسجيل الدخول كمجهول.");
+                            console.log("Signed in anonymously.");
                         }
                     }
                 });
             } catch (error) {
-                console.error("خطأ في تهيئة Firebase أو المصادقة:", error);
-                showNotification(`خطأ في التهيئة: ${error.message}`, "critical");
+                console.error("Error initializing Firebase or authenticating:", error);
+                showNotification(`Initialization Error: ${error.message}`, "critical");
             }
         };
 
 
-        // --- وظائف عامة لواجهة المستخدم ---
+        // --- General UI Functions ---
         /**
-         * يعرض رسالة إشعار مؤقتة (toast).
-         * @param {string} message - الرسالة المراد عرضها.
-         * @param {'success'|'error'|'warning'|'info'|'critical'} type - نوع الإشعار لتحديد النمط.
+         * Displays a temporary notification (toast).
+         * @param {string} message - The message to display.
+         * @param {'success'|'error'|'warning'|'info'|'critical'} type - The type of notification for styling.
          */
         function showNotification(message, type) {
             const notificationContainer = document.getElementById('notification-container');
@@ -118,7 +117,7 @@
                     iconClass = 'fas fa-info-circle';
                     break;
                 case 'critical':
-                    bgColor = 'bg-purple-500'; // استخدام اللون الأرجواني للحرج
+                    bgColor = 'bg-purple-500'; // Using purple for critical
                     iconClass = 'fas fa-skull-crossbones';
                     break;
                 default:
@@ -127,42 +126,43 @@
             }
 
             notification.classList.add(bgColor);
-            notification.innerHTML = `<i class="${iconClass} ml-2"></i> <span>${message}</span>`; // إضافة الأيقونة والرسالة
+            notification.innerHTML = `<i class="${iconClass} ml-2"></i> <span>${message}</span>`; // Add icon and message
 
             notificationContainer.appendChild(notification);
 
-            // إظهار الإشعار
+            // Show notification
             setTimeout(() => {
                 notification.classList.add('translate-x-0', 'opacity-100');
             }, 10);
 
-            // إخفاء وإزالة الإشعار بعد فترة
+            // Hide and remove notification after a period
             setTimeout(() => {
                 notification.classList.remove('translate-x-0', 'opacity-100');
                 notification.classList.add('translate-x-full');
                 setTimeout(() => {
                     notification.remove();
-                }, 300); // يجب أن يتطابق مع مدة الانتقال
-            }, 5000); // يظل مرئيًا لمدة 5 ثوانٍ
+                }, 300); // Must match transition duration
+            }, 5000); // Stays visible for 5 seconds
         }
 
-        // --- وظائف ترجمة اللغة ---
+        // --- Language Translation Functions ---
         /**
-         * يجلب ملفات الترجمة.
-         * @param {string} lang - رمز اللغة (ar, en, fr).
-         * @returns {Object} - كائن الترجمات.
+         * Fetches translation files.
+         * @param {string} lang - Language code (ar, en, fr).
+         * @returns {Object} - Translation object.
          */
         function getTranslations(lang) {
-            // بما أن الترجمات مضمنة في نفس الملف، يمكننا إرجاعها مباشرة
+            // Since translations are embedded in the same file, we can return them directly
             const allTranslations = {
                 'en': {
+                    "iot_project_2025": "IOT Project 2025",
                     "dashboard": "Dashboard",
                     "acceleration_gyro_data": "Acceleration & Gyro Data",
                     "full_table_with_filters": "Full Table with Filters",
                     "charts": "Charts",
                     "alert_log": "Alert Log",
                     "alert_threshold_settings": "Alert Threshold Settings",
-                    "predictive_maintenance": "Predictive Maintenance", // New translation
+                    "predictive_maintenance": "Predictive Maintenance",
                     "sensor_data_overview": "Sensor Data Overview",
                     "latest_sensor_readings": "Latest Sensor Readings",
                     "temperature": "Temperature",
@@ -278,16 +278,25 @@
                     "severity_priority": "Severity/Priority",
                     "relevant_data": "Relevant Data",
                     "suggested_actions": "Suggested Actions",
-                    "no_predictive_alerts": "No predictive maintenance alerts at this time."
+                    "no_predictive_alerts": "No predictive maintenance alerts at this time.",
+                    "view_details": "View Details ✨",
+                    "anomaly_explanation": "Anomaly Explanation",
+                    "generating_explanation": "Generating explanation...",
+                    "no_explanation_generated": "No explanation could be generated for this alert.",
+                    "error_generating_explanation": "Error generating explanation",
+                    "explanation": "Explanation",
+                    "potential_root_causes": "Potential Root Causes",
+                    "suggested_actions_llm": "Suggested Actions"
                 },
                 'ar': {
+                    "iot_project_2025": "مشروع إنترنت الأشياء 2025",
                     "dashboard": "لوحة التحكم",
                     "acceleration_gyro_data": "بيانات التسارع والجيروسكوب",
                     "full_table_with_filters": "الجدول الكامل مع التصفية",
                     "charts": "الرسوم البيانية",
                     "alert_log": "سجل التنبيهات",
                     "alert_threshold_settings": "إعدادات حدود التنبيه",
-                    "predictive_maintenance": "الصيانة التنبؤية", // New translation
+                    "predictive_maintenance": "الصيانة التنبؤية",
                     "sensor_data_overview": "نظرة عامة على بيانات المستشعر",
                     "latest_sensor_readings": "أحدث قراءات المستشعر",
                     "temperature": "درجة الحرارة",
@@ -403,16 +412,25 @@
                     "severity_priority": "الخطورة / الأولوية",
                     "relevant_data": "البيانات ذات الصلة",
                     "suggested_actions": "الإجراءات المقترحة",
-                    "no_predictive_alerts": "لا توجد تنبيهات صيانة تنبؤية في الوقت الحالي."
+                    "no_predictive_alerts": "لا توجد تنبيهات صيانة تنبؤية في الوقت الحالي.",
+                    "view_details": "عرض التفاصيل ✨",
+                    "anomaly_explanation": "شرح الشذوذ",
+                    "generating_explanation": "جاري توليد الشرح...",
+                    "no_explanation_generated": "لم يتمكن من توليد شرح لهذا التنبيه.",
+                    "error_generating_explanation": "خطأ في توليد الشرح",
+                    "explanation": "الشرح",
+                    "potential_root_causes": "الأسباب الجذرية المحتملة",
+                    "suggested_actions_llm": "الإجراءات المقترحة"
                 },
                 'fr': {
+                    "iot_project_2025": "Projet IoT 2025",
                     "dashboard": "Tableau de bord",
                     "acceleration_gyro_data": "Données d'accélération & Gyro",
                     "full_table_with_filters": "Tableau complet avec filtres",
                     "charts": "Graphiques",
                     "alert_log": "Historique des alertes",
                     "alert_threshold_settings": "Paramètres de seuil d'alerte",
-                    "predictive_maintenance": "Maintenance Prédictive", // New translation
+                    "predictive_maintenance": "Maintenance Prédictive",
                     "sensor_data_overview": "Aperçu des données de capteur",
                     "latest_sensor_readings": "Dernières lectures de capteur",
                     "temperature": "Température",
@@ -434,7 +452,7 @@
                     "filter_data": "Filtrer les données",
                     "start_date": "Date de début",
                     "start_time": "Heure de début",
-                    "end_date": "Date de fin",
+                    "end_date": "Heure de fin",
                     "end_time": "Heure de fin",
                     "sensor_type": "Type de capteur",
                     "all_sensor_types": "Tous les types de capteurs",
@@ -507,10 +525,10 @@
                     "alert": "Alerte",
                     "value_is": "la valeur est",
                     "status_is": "le statut est",
-                    "confirm_clear_alerts": "Êtes-vous sûr de vouloir effacer toutes les alertات؟",
+                    "confirm_clear_alerts": "Êtes-vous sûr de vouloir effacer toutes les alertes?",
                     "alerts_cleared": "Alertes effacées avec succès!",
                     "unknown": "Inconnu",
-                    "insight_prompt_base": "Analysez les données de capteur التالية وقدم ملخصًا موجزًا للحالة الحالية، مع تسليط الضوء على أي شذوذ أو اتجاهات مهمة : ",
+                    "insight_prompt_base": "Analysez les données de capteur suivantes et fournissez un résumé concis de l'état actuel, en mettant en évidence les anomalies ou les tendances significatives : ",
                     "language_changed_to": "Langue changée en",
                     "acceleration_x": "Accélération X",
                     "acceleration_y": "Accélération Y",
@@ -528,14 +546,22 @@
                     "severity_priority": "Sévérité/Priorité",
                     "relevant_data": "Données pertinentes",
                     "suggested_actions": "Actions suggérées",
-                    "no_predictive_alerts": "Aucune alerte de maintenance prédictive pour le moment."
+                    "no_predictive_alerts": "Aucune alerte de maintenance prédictive pour le moment.",
+                    "view_details": "Voir les détails ✨",
+                    "anomaly_explanation": "Explication de l'anomalie",
+                    "generating_explanation": "Génération de l'explication...",
+                    "no_explanation_generated": "Aucune explication n'a pu être générée pour cette alerte.",
+                    "error_generating_explanation": "Erreur lors de la génération de l'explication",
+                    "explanation": "Explication",
+                    "potential_root_causes": "Causes profondes potentielles",
+                    "suggested_actions_llm": "Actions suggérées"
                 }
             };
-            return allTranslations[lang] || allTranslations['en']; // العودة إلى الإنجليزية كحل احتياطي
+            return allTranslations[lang] || allTranslations['en']; // Fallback to English
         }
 
         /**
-         * يطبق الترجمات على عناصر DOM.
+         * Applies translations to DOM elements.
          */
         function applyTranslations() {
             if (Object.keys(translations).length === 0) return;
@@ -559,32 +585,32 @@
                 }
             });
 
-            // تحديث اتجاه النص للغة العربية
+            // Update text direction for Arabic
             document.documentElement.dir = (currentLanguage === 'ar') ? 'rtl' : 'ltr';
-            document.body.style.fontFamily = 'Inter, sans-serif'; // التأكد من الخط
+            document.body.style.fontFamily = 'Inter, sans-serif'; // Ensure font
         }
 
         /**
-         * يغير اللغة ويحدث واجهة المستخدم.
-         * @param {string} lang - رمز اللغة (ar, en, fr).
+         * Changes the language and updates the UI.
+         * @param {string} lang - Language code (ar, en, fr).
          */
         async function changeLanguage(lang) {
             currentLanguage = lang;
-            translations = getTranslations(lang); // استخدام الدالة المحدثة
+            translations = getTranslations(lang); // Use the updated function
             applyTranslations();
-            // قد تحتاج إلى إعادة رسم الرسوم البيانية أو تحديث الجداول بعد تغيير اللغة
+            // May need to redraw charts or update tables after language change
             updateDashboardCards();
             updateAccelGyroCards();
-            displayLatestFullData(); // تحديث عرض أحدث بيانات كاملة
-            renderFullTable(currentFullTableData); // أعد عرض الجدول باللغة الجديدة
-            renderChart(); // أعد رسم المخطط باللغة الجديدة
-            renderAlertLogTable(); // أعد عرض سجل التنبيهات
-            renderPredictiveMaintenanceAlerts(); // تحديث تنبيهات الصيانة التنبؤية
-            showNotification(translations['language_changed_to'] + (lang === 'ar' ? ' العربية' : lang === 'en' ? ' الإنجليزية' : ' الفرنسية'), "success");
+            displayLatestFullData(); // Update display of latest full data
+            renderFullTable(currentFullTableData); // Re-render table with new language
+            renderChart(); // Re-render chart with new language
+            renderAlertLogTable(); // Re-render alert log
+            renderPredictiveMaintenanceAlerts(); // Update predictive maintenance alerts
+            showNotification(translations['language_changed_to'] + (lang === 'ar' ? ' Arabic' : lang === 'en' ? ' English' : ' French'), "success");
         }
 
 
-        // --- منطق الشريط الجانبي (Sidebar) ---
+        // --- Sidebar Logic ---
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const mainContent = document.getElementById('main-content');
@@ -593,20 +619,20 @@
             sidebar.classList.toggle('-translate-x-full');
             sidebar.classList.toggle('translate-x-0');
 
-            // تعديل الهامش الأيسر للمحتوى الرئيسي على الشاشات الكبيرة
+            // Adjust left margin of main content on larger screens
             if (window.innerWidth >= 768) { // md breakpoint in Tailwind
                 mainContent.classList.toggle('md:ml-64');
             }
 
-            // تبديل أيقونة زر التبديل
+            // Toggle sidebar button icon
             if (sidebar.classList.contains('translate-x-0')) {
-                sidebarToggleButton.innerHTML = '<i class="fas fa-times"></i>'; // أيقونة إغلاق
+                sidebarToggleButton.innerHTML = '<i class="fas fa-times"></i>'; // Close icon
             } else {
-                sidebarToggleButton.innerHTML = '<i class="fas fa-bars"></i>'; // أيقونة قائمة
+                sidebarToggleButton.innerHTML = '<i class="fas fa-bars"></i>'; // Menu icon
             }
         }
 
-        // إغلاق الشريط الجانبي إذا تم النقر خارج الشريط الجانبي على الجوال
+        // Close sidebar if clicked outside sidebar on mobile
         document.addEventListener('click', (event) => {
             const sidebar = document.getElementById('sidebar');
             const sidebarToggleButton = document.getElementById('sidebar-toggle');
@@ -615,20 +641,20 @@
             }
         });
 
-        // --- التبديل بين الأقسام (Pages) ---
+        // --- Switch Sections (Pages) ---
         function showSection(sectionId) {
             document.querySelectorAll('.content-section').forEach(section => {
                 section.classList.add('hidden');
             });
             document.getElementById(sectionId).classList.remove('hidden');
 
-            // إذا كان القسم هو الجدول الكامل، أعد تعيين الصفحة إلى 1
+            // If the section is the full table, reset page to 1
             if (sectionId === 'full-table-section') {
-                currentPage = 1; // إعادة تعيين الصفحة إلى الأولى
-                displayCurrentPageTable(); // عرض الصفحة الأولى من الجدول
+                currentPage = 1; // Reset page to first
+                displayCurrentPageTable(); // Display first page of table
             }
 
-            // إغلاق الشريط الجانبي على الأجهزة المحمولة بعد تحديد القسم
+            // Close sidebar on mobile devices after selecting section
             if (window.innerWidth < 768) {
                 const sidebar = document.getElementById('sidebar');
                 if (sidebar.classList.contains('translate-x-0')) {
@@ -637,14 +663,11 @@
             }
         }
 
-        // --- تحديث البيانات في الوقت الفعلي (Dashboard) ---
-        let latestSensorData = {}; // تخزين أحدث بيانات المستشعر
-
-        // تم إزالة fetchSensorDataRealtime() لأننا سنعتمد على البيانات التاريخية لملء البطاقات
-
+        // --- Real-time Data Update (Dashboard) ---
+        let latestSensorData = {}; // Store latest sensor data
 
         /**
-         * تحديث بطاقات لوحة التحكم الرئيسية بأحدث البيانات.
+         * Update main dashboard cards with latest data.
          */
         function updateDashboardCards() {
             const sensorIds = {
@@ -674,7 +697,7 @@
         }
 
         /**
-         * تحديث بطاقات التسارع والجيروسكوب.
+         * Update acceleration and gyroscope cards.
          */
         function updateAccelGyroCards() {
             const accelGyroMapping = {
@@ -694,7 +717,7 @@
                     if (valueElement) {
                         valueElement.textContent = `${latestSensorData[dataKey].value.toFixed(2)} ${accelGyroMapping[sheetColumn].unit}`;
                         const status = getSensorStatus(dataKey, latestSensorData[dataKey].value);
-                        statusElement.textContent = translations[status] || status; // ترجمة الحالة
+                        statusElement.textContent = translations[status] || status; // Translate status
                         statusElement.className = `font-semibold ${getStatusColorClass(status)}`;
                     }
                 } else {
@@ -723,18 +746,30 @@
             "Accélération Z": "G",
             "Gyroscope X": "deg/s",
             "Gyroscope Y": "deg/s",
-            "Gyroscope Z": "deg/s"
+            "Gyroscope Z": "deg/s",
+            "temperature": "°C", // Added for internal sensor type
+            "humidity": "%",
+            "vibration": "G",
+            "ntc_temp": "°C",
+            "current": "A",
+            "battery_voltage": "V",
+            "acceleration_x": "G",
+            "acceleration_y": "G",
+            "acceleration_z": "G",
+            "gyro_x": "deg/s",
+            "gyro_y": "deg/s",
+            "gyro_z": "deg/s"
         };
 
 
-        // --- جلب البيانات التاريخية (Full Table & Charts) ---
-        let currentFullTableData = []; // تخزين جميع البيانات التاريخية
+        // --- Fetch Historical Data (Full Table & Charts) ---
+        let currentFullTableData = []; // Store all historical data
 
         async function fetchHistoricalSensorData() {
             showNotification(translations['fetching_historical_data'], "info");
             const loadingOverlay = document.getElementById('loading-overlay'); // Changed to loadingOverlay
             if (loadingOverlay) { // Check if element exists
-                loadingOverlay.classList.remove('hidden'); // إظهار مؤشر التحميل
+                loadingOverlay.classList.remove('hidden'); // Show loading indicator
             }
 
 
@@ -780,7 +815,7 @@
                         deviceId: row["Device ID"] || "unknown" // Assuming a "Device ID" column or fallback
                     };
                     return record;
-                }).filter(record => record.timestamp instanceof Date && !isNaN(record.timestamp)); // Filter out invalid date records
+                }).filter(record => record.timestamp instanceof Date && !isNaN(record.timestamp));
                 
                 // Sort by timestamp, newest first
                 currentFullTableData.sort((a, b) => b.timestamp - a.timestamp);
@@ -810,24 +845,24 @@
                 updateAccelGyroCards();
                 renderFullTable(currentFullTableData);
                 displayLatestFullData(); // Call to display the latest full data
-                populateSensorSelect(); // ملء قائمة المستشعرات للاختيار
+                populateSensorSelect(); // Populate sensor list for selection
                 showNotification(translations['historical_data_fetched'], "success");
             } catch (error) {
-                console.error("خطأ في جلب البيانات التاريخية ومعالجتها:", error);
-                showNotification(`خطأ في البيانات التاريخية: ${error.message}`, "error");
+                console.error("Error fetching and processing historical data:", error);
+                showNotification(`Historical Data Error: ${error.message}`, "error");
             } finally {
                 if (loadingOverlay) { // Check if element exists
-                    loadingOverlay.classList.add('hidden'); // إخفاء مؤشر التحميل
+                    loadingOverlay.classList.add('hidden'); // Hide loading indicator
                 }
             }
         }
 
         /**
-         * يعرض أحدث سجل بيانات كامل من الجدول في قسم خاص.
+         * Displays the latest full data record from the table in a dedicated section.
          */
         function displayLatestFullData() {
             const latestDataContainer = document.getElementById('latest-full-data-content');
-            latestDataContainer.innerHTML = ''; // مسح المحتوى الحالي
+            latestDataContainer.innerHTML = ''; // Clear current content
 
             if (currentFullTableData.length === 0) {
                 latestDataContainer.innerHTML = `<p class="text-gray-400">${translations['no_data_available']}</p>`;
@@ -837,7 +872,7 @@
             const latestRecord = currentFullTableData[0];
             const dataFields = [
                 { key: "Date", label: "Date" },
-                { key: "Heure", label: "Heure" },
+                { key: "Heure", label: "Time" },
                 { key: "Température (°C)", label: translations['temperature'] + ' (°C)' },
                 { key: "Humidité (%)", label: translations['humidity'] + ' (%))' },
                 { key: "Accélération X", label: translations['acceleration_x'] },
@@ -848,7 +883,7 @@
                 { key: "Gyroscope Z", label: translations['gyro_z'] },
                 { key: "Vibration", label: translations['vibration'] },
                 { key: "Temp. NTC (°C)", label: translations['ntc_temp'] + ' (°C)' },
-                { key: "Courant (V Bruts)", label: translations['current'] + ' (V Bruts)' },
+                { key: "Courant (V Bruts)", label: translations['current'] + ' (Raw V)' },
                 { key: "Batterie (V)", label: translations['battery_voltage'] + ' (V)' },
                 { key: "deviceId", label: translations['device_id'] }
             ];
@@ -878,15 +913,15 @@
         }
 
 
-        // --- التحديث التلقائي ---
+        // --- Auto Refresh ---
         function toggleAutoRefresh(enable) {
             const autoRefreshBtn = document.getElementById('auto-refresh-btn');
             if (enable) {
-                if (!autoRefreshInterval) { // فقط إذا لم يكن نشطًا بالفعل
+                if (!autoRefreshInterval) { // Only if not already active
                     autoRefreshInterval = setInterval(async () => {
-                        console.log("تحديث تلقائي للبيانات التاريخية...");
+                        console.log("Auto-refreshing historical data...");
                         await fetchHistoricalSensorData();
-                    }, 15000); // كل 15 ثانية
+                    }, 15000); // Every 15 seconds
                     autoRefreshBtn.innerHTML = `<i class="fas fa-pause"></i> ${translations['disable_auto_refresh']}`;
                     autoRefreshBtn.classList.remove('bg-gray-500', 'hover:bg-gray-600');
                     autoRefreshBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
@@ -904,13 +939,13 @@
             }
         }
 
-        // --- توليد الرؤى باستخدام Gemini API ---
+        // --- Generate Insights using Gemini API ---
         async function generateInsight() {
             showNotification(translations['generating_insights'], "info");
             const insightOutput = document.getElementById('insight-output');
             insightOutput.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${translations['generating']}...`;
             const insightCopyBtn = document.getElementById('insight-copy-btn');
-            insightCopyBtn.classList.add('hidden'); // إخفاء زر النسخ أثناء التوليد
+            insightCopyBtn.classList.add('hidden'); // Hide copy button during generation
 
             let prompt = translations['insight_prompt_base'];
             let sensorSummary = [];
@@ -928,7 +963,7 @@
 
 
             try {
-                // استدعاء Gemini API
+                // Call Gemini API
                 const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
                 const payload = { contents: chatHistory };
                 const response = await fetch(GEMINI_API_URL + apiKey, {
@@ -939,7 +974,7 @@
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(`خطأ في واجهة برمجة تطبيقات Gemini: ${errorData.error.message || response.statusText}`);
+                    throw new Error(`Gemini API Error: ${errorData.error.message || response.statusText}`);
                 }
 
                 const result = await response.json();
@@ -948,25 +983,25 @@
                     result.candidates[0].content.parts.length > 0) {
                     const text = result.candidates[0].content.parts[0].text;
                     insightOutput.textContent = text;
-                    insightCopyBtn.classList.remove('hidden'); // إظهار زر النسخ
+                    insightCopyBtn.classList.remove('hidden'); // Show copy button
                     showNotification(translations['insights_generated_success'], "success");
                 } else {
                     insightOutput.textContent = translations['no_insights_generated'];
                     showNotification(translations['failed_to_generate_insights'], "warning");
                 }
             } catch (error) {
-                console.error("خطأ في توليد الرؤى:", error);
+                console.error("Error generating insights:", error);
                 insightOutput.textContent = `${translations['error_generating_insights']}: ${error.message}`;
-                showNotification(`خطأ في الرؤى: ${error.message}`, "error");
+                showNotification(`Insight Error: ${error.message}`, "error");
             }
         }
 
-        // نسخ الرؤى إلى الحافظة
+        // Copy insights to clipboard
         function copyInsight() {
             const insightOutput = document.getElementById('insight-output');
             const textToCopy = insightOutput.textContent;
             try {
-                // استخدام document.execCommand('copy') لضمان التوافق داخل iFrame
+                // Use document.execCommand('copy') for compatibility inside iFrame
                 const textarea = document.createElement('textarea');
                 textarea.value = textToCopy;
                 document.body.appendChild(textarea);
@@ -975,29 +1010,29 @@
                 document.body.removeChild(textarea);
                 showNotification(translations['insights_copied'], "success");
             } catch (err) {
-                console.error('فشل في نسخ النص:', err);
+                console.error('Failed to copy text:', err);
                 showNotification(translations['failed_to_copy_insights'], "error");
             }
         }
 
-        // --- منطق الجدول الكامل مع التصفية والترحيل ---
+        // --- Full Table with Filtering and Pagination Logic ---
         const rowsPerPage = 10;
         let currentPage = 1;
         let filteredTableData = [];
 
         /**
-         * يعرض بيانات المستشعر في الجدول.
-         * @param {Array<Object>} data - البيانات المراد عرضها.
+         * Displays sensor data in the table.
+         * @param {Array<Object>} data - The data to display.
          */
         function renderFullTable(data) {
-            filteredTableData = data; // تحديث البيانات المفلترة لتطبيق الترحيل عليها
-            currentPage = 1; // إعادة تعيين الصفحة إلى الأولى عند تغيير البيانات
+            filteredTableData = data; // Update filtered data to apply pagination
+            currentPage = 1; // Reset page to first when data changes
 
-            applyTableFilters(); // تطبيق الفلاتر قبل الترحيل
+            applyTableFilters(); // Apply filters before pagination
         }
 
         /**
-         * تطبيق الفلاتر على البيانات وعرض الجدول.
+         * Applies filters to data and displays the table.
          */
         function applyTableFilters() {
             let tempFilteredData = [...currentFullTableData];
@@ -1009,7 +1044,7 @@
             const sensorTypeFilter = document.getElementById('filter-sensor-type').value;
             const searchInput = document.getElementById('search-table').value.toLowerCase();
 
-            // تصفية حسب التاريخ والوقت
+            // Filter by date and time
             if (startDateInput && startTimeInput) {
                 const startDateTime = new Date(`${startDateInput}T${startTimeInput}`);
                 tempFilteredData = tempFilteredData.filter(d => d.timestamp >= startDateTime);
@@ -1019,7 +1054,7 @@
                 tempFilteredData = tempFilteredData.filter(d => d.timestamp <= endDateTime);
             }
 
-            // تصفية حسب البحث في النص
+            // Filter by text search
             if (searchInput) {
                 tempFilteredData = tempFilteredData.filter(d =>
                     Object.values(d).some(val =>
@@ -1034,8 +1069,8 @@
         }
 
         /**
-         * تصفية سريعة حسب النطاقات الزمنية.
-         * @param {string} range - النطاق الزمني (e.g., '1h', '24h', '7d', '30d').
+         * Quick filter by time ranges.
+         * @param {string} range - Time range (e.g., '1h', '24h', '7d', '30d').
          */
         function quickFilter(range) {
             const now = new Date();
@@ -1057,7 +1092,7 @@
                     break;
                 case 'all':
                 default:
-                    startDate = new Date(0); // بداية الوقت
+                    startDate = new Date(0); // Beginning of time
                     endDate = now;
                     break;
             }
@@ -1072,11 +1107,11 @@
 
 
         /**
-         * يعرض صفحة معينة من الجدول.
+         * Displays a specific page of the table.
          */
         function displayCurrentPageTable() {
             const tableBody = document.getElementById('sensor-table-body');
-            tableBody.innerHTML = ''; // مسح المحتوى الحالي
+            tableBody.innerHTML = ''; // Clear current content
 
             const startIndex = (currentPage - 1) * rowsPerPage;
             const endIndex = startIndex + rowsPerPage;
@@ -1113,7 +1148,7 @@
         }
 
         /**
-         * تحديث أزرار التحكم في الترحيل.
+         * Update pagination controls.
          */
         function updatePaginationControls() {
             const totalPages = Math.ceil(filteredTableData.length / rowsPerPage);
@@ -1138,7 +1173,7 @@
         }
 
         /**
-         * تصدير بيانات الجدول المفلترة إلى CSV.
+         * Export filtered table data to CSV.
          */
         function exportToCSV() {
             if (filteredTableData.length === 0) {
@@ -1188,7 +1223,7 @@
         }
 
         /**
-         * تصدير محتوى الجدول المفلتر إلى PDF.
+         * Export filtered table content to PDF.
          */
         async function exportToPDF() {
             if (filteredTableData.length === 0) {
@@ -1202,21 +1237,21 @@
                 loadingOverlay.classList.remove('hidden'); // Show loading overlay
             }
 
-            const input = document.getElementById('full-table-container'); // العنصر الذي تريد تصديره
-            // التأكد من أن جميع البيانات مرئية قبل التقاط الصورة إذا كان الجدول مخفياً بالترحيل
-            // هذا سيتطلب إما إظهار جميع البيانات مؤقتًا أو بناء الجدول يدويًا
+            const input = document.getElementById('full-table-container'); // The element to export
+            // Ensure all data is visible before capturing the image if the table is hidden by pagination
+            // This will require either showing all data temporarily or building the table manually
             const originalRowsPerPage = rowsPerPage;
             const originalCurrentPage = currentPage;
-            rowsPerPage = filteredTableData.length; // عرض جميع الصفوف مؤقتاً
+            rowsPerPage = filteredTableData.length; // Display all rows temporarily
             currentPage = 1;
-            displayCurrentPageTable(); // إعادة رسم الجدول مع جميع الصفوف
+            displayCurrentPageTable(); // Redraw table with all rows
 
             try {
-                // استخدام html2canvas لالتقاط المحتوى كصورة
-                const canvas = await html2canvas(input, { scale: 2, useCORS: true }); // زيادة الدقة
+                // Use html2canvas to capture content as an image
+                const canvas = await html2canvas(input, { scale: 2, useCORS: true }); // Increase resolution
                 const imgData = canvas.toDataURL('image/png');
 
-                // استخدام jsPDF لإنشاء مستند PDF
+                // Use jsPDF to create a PDF document
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4'); // 'p' for portrait, 'mm' for millimeters, 'a4' for A4 size
 
@@ -1240,10 +1275,10 @@
                 pdf.save('sensor_data.pdf');
                 showNotification(translations['data_exported_pdf'], "success");
             } catch (error) {
-                console.error("خطأ في تصدير PDF:", error);
-                showNotification(`خطأ في تصدير PDF: ${error.message}`, "error");
+                console.error("Error exporting PDF:", error);
+                showNotification(`PDF Export Error: ${error.message}`, "error");
             } finally {
-                // إعادة الإعدادات الأصلية للترحيل
+                // Restore original pagination settings
                 rowsPerPage = originalRowsPerPage;
                 currentPage = originalCurrentPage;
                 displayCurrentPageTable();
@@ -1254,17 +1289,10 @@
         }
 
         /**
-         * ملء قائمة المستشعرات المنسدلة في فلاتر الجدول والرسوم البيانية.
+         * Populates the sensor dropdown list in table filters and charts.
          */
         function populateSensorSelect() {
-            // الآن البيانات التاريخية تحتوي على جميع الأعمدة كخصائص مباشرة
-            // نحتاج إلى جمع أنواع المستشعرات الفريدة من خلال map
             const sensorTypes = new Set();
-            // هذا الجزء يحتاج إلى إعادة تقييم إذا كنت تريد عرض أنواع المستشعرات الفردية
-            // من البيانات التاريخية التي هي الآن كجدول واحد
-            // على سبيل المثال، إذا كان كل عمود "sensorType"
-            // For now, it will list all original column headers as potential "sensor types" for filtering.
-            // This might not be what's desired if "sensorType" was meant to be a single consolidated field.
             const columnHeaders = [
                 "Température (°C)", "Humidité (%)", "Accélération X", "Accélération Y",
                 "Accélération Z", "Gyroscope X", "Gyroscope Y", "Gyroscope Z",
@@ -1278,13 +1306,13 @@
             sensorTypes.forEach(type => {
                 const option = document.createElement('option');
                 option.value = type;
-                option.textContent = translations[type] || type; // استخدم الترجمة إذا كانت متاحة
+                option.textContent = translations[type] || type; // Use translation if available
                 filterSelect.appendChild(option);
             });
 
-            // ملء قائمة اختيار المستشعرات للرسوم البيانية
+            // Populate sensor selection list for charts
             const chartSensorSelect = document.getElementById('chart-sensor-select');
-            chartSensorSelect.innerHTML = ''; // مسح الخيارات القديمة
+            chartSensorSelect.innerHTML = ''; // Clear old options
             sensorTypes.forEach(type => {
                 const div = document.createElement('div');
                 div.className = 'flex items-center';
@@ -1297,16 +1325,16 @@
         }
 
 
-        // --- منطق الرسوم البيانية ---
+        // --- Chart Logic ---
         let sensorChart;
         let selectedChartSensors = [];
 
         /**
-         * يهيئ الرسم البياني الأول.
+         * Initializes the first chart.
          */
         function initChart() {
             const ctx = document.getElementById('sensorChart').getContext('2d');
-            // تدمير الرسم البياني الموجود قبل إنشاء واحد جديد
+            // Destroy existing chart before creating a new one
             if (sensorChart) {
                 sensorChart.destroy();
             }
@@ -1330,7 +1358,7 @@
                             color: 'white'
                         },
                         tooltip: {
-                            rtl: currentLanguage === 'ar', // دعم RTL للأدوات المنبثقة
+                            rtl: currentLanguage === 'ar', // RTL support for tooltips
                         },
                         legend: {
                             labels: {
@@ -1380,22 +1408,22 @@
         }
 
         /**
-         * يحدث الرسم البياني بناءً على المستشعرات المحددة والبيانات المفلترة.
+         * Updates the chart based on selected sensors and filtered data.
          */
         function renderChart() {
-            // يجب أن يكون الرسم البياني مهيئًا بالفعل بواسطة initChart()
+            // Chart must be initialized already by initChart()
             if (!sensorChart) {
-                console.error("خطأ: الرسم البياني غير مهيأ. يرجى تهيئة الرسم البياني أولاً.");
-                showNotification("خطأ: الرسم البياني غير مهيأ.", "error");
+                console.error("Error: Chart not initialized. Please initialize chart first.");
+                showNotification("Error: Chart not initialized.", "error");
                 return;
             }
 
-            const chartData = filterChartData(); // احصل على البيانات المفلترة للرسم البياني
+            const chartData = filterChartData(); // Get filtered data for chart
 
             sensorChart.data.labels = chartData.labels;
             sensorChart.data.datasets = [];
 
-            const colors = ['#4299E1', '#8B5CF6', '#F6E05E', '#FC8181', '#48BB78', '#ED8936']; // ألوان للمجموعات
+            const colors = ['#4299E1', '#8B5CF6', '#F6E05E', '#FC8181', '#48BB78', '#ED8936']; // Colors for datasets
 
             selectedChartSensors.forEach((sensorHeader, index) => { // Now sensorHeader is like "Température (°C)"
                 const sensorValues = chartData.datasets[sensorHeader];
@@ -1404,7 +1432,7 @@
                         label: translations[sensorHeader] || sensorHeader, // Use original header or translation
                         data: sensorValues,
                         borderColor: colors[index % colors.length],
-                        backgroundColor: colors[index % colors.length] + '40', // 40% شفافية
+                        backgroundColor: colors[index % colors.length] + '40', // 40% transparency
                         borderWidth: 2,
                         pointRadius: 3,
                         pointBackgroundColor: colors[index % colors.length],
@@ -1424,21 +1452,21 @@
             }
 
 
-            // تحديث الإحصائيات
+            // Update statistics
             updateChartStatistics(chartData.rawValues);
 
             sensorChart.update();
         }
 
         /**
-         * يجمع البيانات للرسم البياني.
-         * @returns {Object} - كائن يحتوي على الملصقات ومجموعات البيانات.
+         * Collects data for the chart.
+         * @returns {Object} - Object containing labels and datasets.
          */
         function filterChartData() {
             const dataForChart = { labels: [], datasets: {}, rawValues: [] };
-            const sensorDataMap = {}; // لجمع البيانات لكل نوع مستشعر
+            const sensorDataMap = {}; // To collect data for each sensor type
 
-            // استخدام البيانات المفلترة حاليًا من الجدول الكامل
+            // Use currently filtered data from the full table
             filteredTableData.forEach(entry => {
                 // For each selected sensor, push its value from the current row
                 selectedChartSensors.forEach(sensorHeader => {
@@ -1459,19 +1487,19 @@
                 }
             });
 
-            // فرز البيانات زمنيًا
+            // Sort data chronologically
             for (const sensorHeader in sensorDataMap) {
                 sensorDataMap[sensorHeader].sort((a, b) => a.x - b.x);
             }
 
-            // فرز الملصقات
+            // Sort labels
             dataForChart.labels.sort((a, b) => a - b);
 
-            // ملء مجموعات البيانات بالقيم الصحيحة بناءً على الملصقات
+            // Populate datasets with correct values based on labels
             for (const sensorHeader in sensorDataMap) {
                 dataForChart.datasets[sensorHeader] = dataForChart.labels.map(label => {
                     const dataPoint = sensorDataMap[sensorHeader].find(d => d.x === label);
-                    return dataPoint ? dataPoint.y : null; // استخدام null للقيم المفقودة
+                    return dataPoint ? dataPoint.y : null; // Use null for missing values
                 });
             }
 
@@ -1479,8 +1507,8 @@
         }
 
         /**
-         * تحديث إحصائيات الرسم البياني (الحد الأدنى، الأقصى، المتوسط).
-         * @param {Array<number>} values - القيم الخام للمستشعرات المعروضة.
+         * Update chart statistics (min, max, avg).
+         * @param {Array<number>} values - Raw sensor values displayed.
          */
         function updateChartStatistics(values) {
             const minElement = document.getElementById('chart-stats-min');
@@ -1504,7 +1532,7 @@
 
 
         /**
-         * يطبق اختيار المستشعرات للرسم البياني.
+         * Applies sensor selection for the chart.
          */
         function applyChartSelections() {
             selectedChartSensors = [];
@@ -1515,7 +1543,7 @@
         }
 
         /**
-         * يحدد جميع المستشعرات للرسم البياني.
+         * Selects all sensors for the chart.
          */
         function selectAllChartSensors() {
             document.querySelectorAll('#chart-sensor-select input[type="checkbox"]').forEach(checkbox => {
@@ -1525,7 +1553,7 @@
         }
 
         /**
-         * يعيد تعيين تحديدات المستشعرات للرسم البياني.
+         * Resets sensor selections for the chart.
          */
         function resetChartSelections() {
             document.querySelectorAll('#chart-sensor-select input[type="checkbox"]').forEach(checkbox => {
@@ -1536,10 +1564,7 @@
         }
 
 
-        // --- نظام التنبيهات (Alerts) ---
-        // Note: Thresholds now apply to the internal sensor types, not the raw column headers.
-        // You might need a separate mapping or dynamic threshold generation if you want to set thresholds
-        // directly on the raw column headers from Google Sheets.
+        // --- Alert System ---
         let alertThresholds = {
             temperature: { normal: { min: 20, max: 30 }, warning: { min: 15, max: 35 }, critical: { min: 10, max: 40 } },
             humidity: { normal: { min: 40, max: 60 }, warning: { min: 30, max: 70 }, critical: { min: 20, max: 80 } },
@@ -1554,12 +1579,12 @@
             gyro_y: { normal: { min: -5, max: 5 }, warning: { min: -15, max: 15 }, critical: { min: -30, max: 30 } },
             gyro_z: { normal: { min: -5, max: 5 }, warning: { min: -15, max: 15 }, critical: { min: -30, max: 30 } }
         };
-        const defaultAlertThresholds = JSON.parse(JSON.stringify(alertThresholds)); // نسخة احتياطية
+        const defaultAlertThresholds = JSON.parse(JSON.stringify(alertThresholds)); // Backup
 
         let alertLogData = [];
 
         /**
-         * يجلب حدود التنبيه المحفوظة من Firebase Firestore.
+         * Fetches saved alert thresholds from Firebase Firestore.
          */
         async function fetchAlertThresholds() {
             if (!db || !currentUserId) return;
@@ -1568,26 +1593,26 @@
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     alertThresholds = docSnap.data();
-                    console.log("تم تحميل حدود التنبيه:", alertThresholds);
+                    console.log("Alert thresholds loaded:", alertThresholds);
                     showNotification(translations['thresholds_loaded'], "info");
                 } else {
-                    console.log("لم يتم العثور على حدود التنبيه المحفوظة، سيتم استخدام الافتراضيات.");
+                    console.log("No saved alert thresholds found, defaults will be used.");
                 }
                 populateThresholdSettings();
             } catch (error) {
-                console.error("خطأ في جلب حدود التنبيه:", error);
-                showNotification(`خطأ في حدود التنبيه: ${error.message}`, "error");
+                console.error("Error fetching alert thresholds:", error);
+                showNotification(`Alert Threshold Error: ${error.message}`, "error");
             }
         }
 
         /**
-         * يحفظ حدود التنبيه الحالية إلى Firebase Firestore.
+         * Saves current alert thresholds to Firebase Firestore.
          */
         async function saveAlertThresholds() {
             if (!db || !currentUserId) return;
             const docRef = doc(db, `artifacts/${__app_id}/users/${currentUserId}/settings/alertThresholds`);
             try {
-                // قراءة القيم من واجهة المستخدم وتحديث كائن alertThresholds
+                // Read values from UI and update alertThresholds object
                 for (const sensorType in alertThresholds) {
                     ['normal', 'warning', 'critical'].forEach(level => {
                         const minInput = document.getElementById(`${sensorType}-${level}-min`);
@@ -1599,26 +1624,26 @@
                     });
                 }
                 await setDoc(docRef, alertThresholds);
-                console.log("تم حفظ حدود التنبيه بنجاح!");
+                console.log("Alert thresholds saved successfully!");
                 showNotification(translations['thresholds_saved_success'], "success");
             } catch (error) {
-                console.error("خطأ في حفظ حدود التنبيه:", error);
-                showNotification(`خطأ في حفظ الحدود: ${error.message}`, "error");
+                console.error("Error saving alert thresholds:", error);
+                showNotification(`Error saving thresholds: ${error.message}`, "error");
             }
         }
 
         /**
-         * يعيد تعيين حدود التنبيه إلى القيم الافتراضية ويحفظها.
+         * Resets alert thresholds to default values and saves them.
          */
         async function resetAlertThresholds() {
             alertThresholds = JSON.parse(JSON.stringify(defaultAlertThresholds));
             populateThresholdSettings();
-            await saveAlertThresholds(); // حفظ القيم الافتراضية إلى Firestore
+            await saveAlertThresholds(); // Save default values to Firestore
             showNotification(translations['thresholds_reset'], "warning");
         }
 
         /**
-         * يملأ حقول إعدادات الحدود بقيمها الحالية.
+         * Populates threshold settings fields with their current values.
          */
         function populateThresholdSettings() {
             for (const sensorType in alertThresholds) {
@@ -1633,14 +1658,14 @@
 
 
         /**
-         * تحديد حالة المستشعر بناءً على القيمة والحدود.
-         * @param {string} sensorType - نوع المستشعر.
-         * @param {number} value - القيمة الحالية للمستشعر.
-         * @returns {'normal'|'warning'|'critical'} - حالة المستشعر.
+         * Determines sensor status based on value and thresholds.
+         * @param {string} sensorType - Type of sensor.
+         * @param {number} value - Current sensor value.
+         * @returns {'normal'|'warning'|'critical'} - Sensor status.
          */
         function getSensorStatus(sensorType, value) {
             const thresholds = alertThresholds[sensorType];
-            if (!thresholds) return 'normal'; // إذا لم تكن هناك حدود، افترض أنها عادية
+            if (!thresholds) return 'normal'; // If no thresholds, assume normal
 
             if (value < thresholds.critical.min || value > thresholds.critical.max) {
                 return 'critical';
@@ -1652,9 +1677,9 @@
         }
 
         /**
-         * الحصول على فئة لون Tailwind بناءً على الحالة.
-         * @param {'normal'|'warning'|'critical'} status - حالة المستشعر.
-         * @returns {string} - فئة لون Tailwind.
+         * Gets Tailwind color class based on status.
+         * @param {'normal'|'warning'|'critical'} status - Sensor status.
+         * @returns {string} - Tailwind color class.
          */
         function getStatusColorClass(status) {
             switch (status) {
@@ -1672,13 +1697,10 @@
 
 
         /**
-         * يتحقق من وجود تنبيهات ويضيفها إلى السجل.
-         * @param {Object} sensorData - بيانات المستشعر الواردة.
+         * Checks for alerts and adds them to the log.
+         * @param {Object} sensorData - Incoming sensor data.
          */
         async function checkAlerts(sensorData) {
-            // This function needs to map the raw sheet headers to internal sensor types
-            // to check against the alertThresholds object.
-            // Example for temperature:
             const sensorMappings = {
                 "Température (°C)": "temperature",
                 "Humidité (%)": "humidity",
@@ -1709,13 +1731,13 @@
                             severity: status,
                             message: `${translations['alert']}! ${translations[internalSensorType] || internalSensorType} ${parseFloat(valueToCheck).toFixed(2)}${sensorUnitsMapping[sheetColumn] || ''}. ${translations['status_is']} ${translations[status]}.`
                         };
-                        showNotification(newAlert.message, status); // عرض إشعار في التطبيق
-                        // إضافة التنبيه إلى Firestore
+                        showNotification(newAlert.message, status); // Display notification in app
+                        // Add alert to Firestore
                         if (db && currentUserId) {
                             try {
                                 await addDoc(collection(db, `artifacts/${__app_id}/users/${currentUserId}/alertLog`), newAlert);
                             } catch (error) {
-                                console.error("خطأ في حفظ التنبيه إلى Firestore:", error);
+                                console.error("Error saving alert to Firestore:", error);
                             }
                         }
                     }
@@ -1724,7 +1746,7 @@
         }
 
         /**
-         * يجلب سجل التنبيهات من Firebase Firestore في الوقت الفعلي.
+         * Fetches alert log from Firebase Firestore in real-time.
          */
         async function fetchAlertLog() {
             if (!db || !currentUserId) return;
@@ -1734,15 +1756,15 @@
                 alertLogData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderAlertLogTable();
             }, (error) => {
-                console.error("خطأ في جلب سجل التنبيهات:", error);
-                showNotification(`خطأ في سجل التنبيهات: ${error.message}`, "error");
+                console.error("Error fetching alert log:", error);
+                showNotification(`Alert Log Error: ${error.message}`, "error");
             });
         }
 
         let currentFilteredAlerts = [];
 
         /**
-         * يعرض سجل التنبيهات في الجدول بناءً على الفلاتر والفرز.
+         * Displays alert log in the table based on filters and sorting.
          */
         function renderAlertLogTable() {
             let filteredAlerts = [...alertLogData];
@@ -1751,7 +1773,7 @@
             const sensorFilter = document.getElementById('alert-sensor-filter').value;
             const sortOrder = document.getElementById('alert-sort-order').value;
 
-            // تطبيق فلاتر سجل التنبيهات
+            // Apply alert log filters
             if (severityFilter !== 'all') {
                 filteredAlerts = filteredAlerts.filter(alert => alert.severity === severityFilter);
             }
@@ -1759,13 +1781,13 @@
                 filteredAlerts = filteredAlerts.filter(alert => alert.sensorType === sensorFilter);
             }
 
-            // فرز سجل التنبيهات
+            // Sort alert log
             filteredAlerts.sort((a, b) => {
                 const dateA = new Date(a.timestamp);
                 const dateB = new Date(b.timestamp);
                 if (sortOrder === 'latest') return dateB - dateA;
                 if (sortOrder === 'oldest') return dateA - dateB;
-                // الفرز حسب نوع المستشعر (أبجديًا)
+                // Sort by sensor type (alphabetical)
                 return (translations[a.sensorType] || a.sensorType).localeCompare(translations[b.sensorType] || b.sensorType);
             });
 
@@ -1775,7 +1797,7 @@
             tableBody.innerHTML = '';
 
             if (filteredAlerts.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">${translations['no_alerts_available']}</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">${translations['no_alerts_available']}</td></tr>`;
                 return;
             }
 
@@ -1799,13 +1821,41 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm ${severityColorClass} font-semibold">${translations[alert.severity] || alert.severity}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${translations[alert.sensorType] || alert.sensorType}</td>
                     <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${alert.message}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        <button class="view-details-btn bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded-md text-xs font-semibold transition-colors duration-200"
+                                data-alert-id="${alert.id}"
+                                data-sensor-type="${alert.sensorType}"
+                                data-value="${alert.value}"
+                                data-unit="${alert.unit}"
+                                data-severity="${alert.severity}"
+                                data-timestamp="${alert.timestamp}"
+                                data-message="${alert.message}">
+                            <i class="fas fa-info-circle ml-1"></i> ${translations['view_details']}
+                        </button>
+                    </td>
                 `;
                 tableBody.appendChild(tr);
+            });
+
+            // Add event listeners for "View Details" buttons
+            document.querySelectorAll('.view-details-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const alertData = {
+                        id: event.target.dataset.alertId,
+                        sensorType: event.target.dataset.sensorType,
+                        value: parseFloat(event.target.dataset.value),
+                        unit: event.target.dataset.unit,
+                        severity: event.target.dataset.severity,
+                        timestamp: event.target.dataset.timestamp,
+                        message: event.target.dataset.message
+                    };
+                    showAnomalyExplanationModal(alertData);
+                });
             });
         }
 
         /**
-         * يمسح جميع التنبيهات من سجل التنبيهات في Firebase Firestore.
+         * Clears all alerts from the alert log in Firebase Firestore.
          */
         async function clearAlertLog() {
             if (!db || !currentUserId) return;
@@ -1824,13 +1874,13 @@
                 await Promise.all(deletePromises);
                 showNotification(translations['alerts_cleared'], "success");
             } catch (error) {
-                console.error("خطأ في مسح سجل التنبيهات:", error);
-                showNotification(`خطأ في مسح التنبيهات: ${error.message}`, "error");
+                console.error("Error clearing alert log:", error);
+                showNotification(`Error clearing alerts: ${error.message}`, "error");
             }
         }
 
         /**
-         * تهيئة خيارات الفلترة لـ Alert Log
+         * Initializes filter options for Alert Log
          */
         function populateAlertLogFilters() {
             const sensorTypes = new Set();
@@ -1847,7 +1897,100 @@
             });
         }
 
-        // --- منطق الصيانة التنبؤية ---
+        // --- Anomaly Explanation Modal and LLM Integration ---
+        /**
+         * Shows the anomaly explanation modal and triggers LLM generation.
+         * @param {Object} alertData - The alert data to explain.
+         */
+        async function showAnomalyExplanationModal(alertData) {
+            const modal = document.getElementById('anomaly-explanation-modal');
+            const modalContent = document.getElementById('anomaly-explanation-content');
+            const modalTitle = document.getElementById('anomaly-explanation-title');
+
+            modalTitle.textContent = `${translations['anomaly_explanation']} - ${translations[alertData.sensorType] || alertData.sensorType}`;
+            modalContent.innerHTML = `<p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> ${translations['generating_explanation']}</p>`;
+            modal.classList.remove('hidden');
+
+            await generateAlertExplanation(alertData);
+        }
+
+        /**
+         * Generates an anomaly explanation using the Gemini API.
+         * @param {Object} alertData - The alert data.
+         */
+        async function generateAlertExplanation(alertData) {
+            const modalContent = document.getElementById('anomaly-explanation-content');
+            const thresholds = alertThresholds[alertData.sensorType];
+
+            let prompt = `Analyze the following sensor alert. Provide a concise explanation of why this alert might have occurred, considering the sensor type, its value, and the defined thresholds. Suggest potential root causes and immediate actions.
+
+Sensor Type: ${translations[alertData.sensorType] || alertData.sensorType}
+Value: ${alertData.value.toFixed(2)} ${alertData.unit}
+Severity: ${translations[alertData.severity] || alertData.severity}
+Timestamp: ${new Date(alertData.timestamp).toLocaleString(currentLanguage)}
+Alert Message: ${alertData.message}
+
+Thresholds:
+Normal: Min ${thresholds.normal.min}, Max ${thresholds.normal.max}
+Warning: Min ${thresholds.warning.min}, Max ${thresholds.warning.max}
+Critical: Min ${thresholds.critical.min}, Max ${thresholds.critical.max}
+
+Please format your response clearly with sections for '${translations['explanation']}', '${translations['potential_root_causes']}', and '${translations['suggested_actions_llm']}'.`;
+
+            try {
+                const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const response = await fetch(GEMINI_API_URL + apiKey, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Gemini API Error: ${errorData.error.message || response.statusText}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    modalContent.innerHTML = formatLLMResponse(text); // Format the response for better readability
+                } else {
+                    modalContent.textContent = translations['no_explanation_generated'];
+                }
+            } catch (error) {
+                console.error("Error generating alert explanation:", error);
+                modalContent.textContent = `${translations['error_generating_explanation']}: ${error.message}`;
+            }
+        }
+
+        /**
+         * Formats the LLM response for better display in the modal.
+         * Converts markdown-like headers to HTML.
+         * @param {string} text - The raw text from the LLM.
+         * @returns {string} - HTML formatted text.
+         */
+        function formatLLMResponse(text) {
+            let formattedText = text.replace(/### (.*)/g, '<h4 class="text-lg font-semibold mt-4 mb-2 text-blue-300">$1</h4>');
+            formattedText = formattedText.replace(/## (.*)/g, '<h3 class="text-xl font-bold mt-5 mb-3 text-blue-400">$1</h3>');
+            formattedText = formattedText.replace(/\* (.*)/g, '<li class="mb-1">$1</li>');
+            formattedText = formattedText.replace(/^- (.*)/g, '<li class="mb-1">$1</li>');
+            formattedText = formattedText.replace(/(\n\n)/g, '<p class="mb-2"></p>'); // Convert double newlines to paragraphs
+            formattedText = formattedText.replace(/(\n)/g, '<br>'); // Convert single newlines to breaks
+            return `<div class="prose prose-invert max-w-none text-gray-200">${formattedText}</div>`; // Tailwind prose for good typography
+        }
+
+
+        /**
+         * Closes the anomaly explanation modal.
+         */
+        function closeAnomalyExplanationModal() {
+            document.getElementById('anomaly-explanation-modal').classList.add('hidden');
+        }
+
+        // --- Predictive Maintenance Logic ---
         // Dummy data for predictive maintenance alerts
         let predictiveMaintenanceAlerts = [
             {
@@ -1880,11 +2023,11 @@
         ];
 
         /**
-         * يعرض تنبيهات الصيانة التنبؤية.
+         * Displays predictive maintenance alerts.
          */
         function renderPredictiveMaintenanceAlerts() {
             const container = document.getElementById('predictive-maintenance-alerts-container');
-            container.innerHTML = ''; // مسح المحتوى الحالي
+            container.innerHTML = ''; // Clear current content
 
             if (predictiveMaintenanceAlerts.length === 0) {
                 container.innerHTML = `<p class="text-gray-400">${translations['no_predictive_alerts']}</p>`;
@@ -1923,16 +2066,16 @@
         }
 
 
-        // --- تهيئة التطبيق عند تحميل النافذة ---
+        // --- Initialize Application on Window Load ---
         window.onload = async () => {
-            // جلب الترجمات الافتراضية أولاً
-            translations = getTranslations(currentLanguage); // استخدام الدالة المحدثة
-            applyTranslations(); // تطبيق الترجمات الأولية
+            // Fetch default translations first
+            translations = getTranslations(currentLanguage); // Use the updated function
+            applyTranslations(); // Apply initial translations
 
-            // تهيئة Firebase والبدء في جلب البيانات
+            // Initialize Firebase and start fetching data
             await initializeFirebase();
 
-            // ربط المستمعين بالأحداث
+            // Bind event listeners
             document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
             document.getElementById('nav-dashboard').addEventListener('click', () => showSection('dashboard-section'));
             document.getElementById('nav-accel-gyro').addEventListener('click', () => showSection('accel-gyro-section'));
@@ -1942,12 +2085,12 @@
             document.getElementById('nav-alert-settings').addEventListener('click', () => showSection('alert-settings-section'));
             document.getElementById('nav-predictive-maintenance').addEventListener('click', () => showSection('predictive-maintenance-section')); // New nav item
 
-            // لوحة التحكم
+            // Dashboard
             document.getElementById('generate-insight-btn').addEventListener('click', generateInsight);
             document.getElementById('insight-copy-btn').addEventListener('click', copyInsight);
             document.getElementById('auto-refresh-btn').addEventListener('click', () => toggleAutoRefresh(!autoRefreshInterval));
 
-            // الجدول الكامل
+            // Full Table
             document.getElementById('filter-apply-btn').addEventListener('click', applyTableFilters);
             document.getElementById('filter-reset-btn').addEventListener('click', () => {
                 document.getElementById('filter-start-date').value = '';
@@ -1971,12 +2114,12 @@
             document.getElementById('export-csv-btn').addEventListener('click', exportToCSV);
             document.getElementById('export-pdf-btn').addEventListener('click', exportToPDF);
 
-            // الرسوم البيانية
+            // Charts
             document.getElementById('apply-chart-changes-btn').addEventListener('click', applyChartSelections);
             document.getElementById('select-all-charts-btn').addEventListener('click', selectAllChartSensors);
             document.getElementById('reset-chart-selections-btn').addEventListener('click', resetChartSelections);
 
-            // إضافة معالجات الأحداث لأزرار "View Chart"
+            // Add event handlers for "View Chart" buttons
             document.getElementById('view-accel-x-chart-btn').addEventListener('click', () => {
                 showSection('charts-section');
                 selectedChartSensors = ['Accélération X']; // Use the actual column header
@@ -2009,25 +2152,34 @@
             });
 
 
-            // سجل التنبيهات
+            // Alert Log
             document.getElementById('alert-severity-filter').addEventListener('change', renderAlertLogTable);
             document.getElementById('alert-sensor-filter').addEventListener('change', renderAlertLogTable);
             document.getElementById('alert-sort-order').addEventListener('change', renderAlertLogTable);
             document.getElementById('clear-alert-log-btn').addEventListener('click', clearAlertLog);
 
-            // إعدادات التنبيه
+            // Anomaly Explanation Modal
+            document.getElementById('anomaly-explanation-modal-close').addEventListener('click', closeAnomalyExplanationModal);
+            document.getElementById('anomaly-explanation-modal').addEventListener('click', (event) => {
+                if (event.target.id === 'anomaly-explanation-modal') {
+                    closeAnomalyExplanationModal();
+                }
+            });
+
+
+            // Alert Settings
             document.getElementById('save-thresholds-btn').addEventListener('click', saveAlertThresholds);
             document.getElementById('reset-thresholds-btn').addEventListener('click', resetAlertThresholds);
 
-            // مبدل اللغة
+            // Language switcher
             document.getElementById('lang-select').addEventListener('change', (e) => changeLanguage(e.target.value));
 
 
-            // تهيئة واجهة المستخدم الأولية
-            initChart(); // تهيئة Chart.js هنا لمرة واحدة
-            showSection('dashboard-section'); // عرض لوحة التحكم الافتراضية
-            populateAlertLogFilters(); // ملء فلاتر سجل التنبيهات
-            renderPredictiveMaintenanceAlerts(); // عرض تنبيهات الصيانة التنبؤية
+            // Initial UI setup
+            initChart(); // Initialize Chart.js here once
+            showSection('dashboard-section'); // Display default dashboard
+            populateAlertLogFilters(); // Populate alert log filters
+            renderPredictiveMaintenanceAlerts(); // Display predictive maintenance alerts
         };
     </script>
     <style>
@@ -2060,8 +2212,41 @@
             transform: translateX(0); /* Slide in */
             opacity: 1;
         }
-        /* Loading Overlay Styles */
+        /* Loading Overlay Styles - Modified for top-right, smaller */
         .loading-overlay {
+            position: fixed;
+            top: 10px; /* Smaller distance from top */
+            right: 10px; /* Smaller distance from right */
+            width: 120px; /* Smaller width */
+            height: 120px; /* Smaller height */
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px; /* Rounded corners */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            font-size: 0.8rem; /* Smaller font size */
+            padding: 5px; /* Smaller padding */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 30px; /* Smaller spinner */
+            height: 30px; /* Smaller spinner */
+            animation: spin 1s linear infinite; /* Faster spin */
+            margin-bottom: 0.5rem; /* Smaller margin */
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
@@ -2072,22 +2257,17 @@
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            color: white;
-            font-size: 1.5rem;
-            flex-direction: column;
         }
-        .loading-spinner {
-            border: 8px solid #f3f3f3; /* Light grey */
-            border-top: 8px solid #3498db; /* Blue */
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 2s linear infinite;
-            margin-bottom: 1rem;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .modal-content {
+            background-color: #1f2937; /* gray-800 */
+            padding: 2rem;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
         }
     </style>
 </head>
@@ -2099,13 +2279,26 @@
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay hidden">
         <div class="loading-spinner"></div>
-        <p id="loading-message">جاري التحميل...</p>
+        <p id="loading-message">Loading...</p> <!-- Changed loading message to English -->
+    </div>
+
+    <!-- Anomaly Explanation Modal -->
+    <div id="anomaly-explanation-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="anomaly-explanation-title" class="text-2xl font-bold mb-4 text-blue-400">Anomaly Explanation</h3>
+            <div id="anomaly-explanation-content" class="text-gray-300 text-sm leading-relaxed">
+                <!-- LLM generated explanation will be loaded here -->
+            </div>
+            <button id="anomaly-explanation-modal-close" class="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl focus:outline-none">
+                &times;
+            </button>
+        </div>
     </div>
 
     <!-- Sidebar -->
     <aside id="sidebar" class="fixed inset-y-0 right-0 w-64 bg-gray-800 p-6 z-40 md:relative md:translate-x-0 transition-transform duration-300 ease-in-out shadow-lg">
         <div class="flex items-center justify-between mb-8">
-            <h1 class="text-2xl font-bold text-blue-400" data-i18n="iot_project_2025">مشروع إنترنت الأشياء 2025</h1>
+            <h1 class="text-2xl font-bold text-blue-400" data-i18n="iot_project_2025">IOT Project 2025</h1>
             <button id="sidebar-toggle" class="md:hidden text-gray-400 hover:text-white focus:outline-none">
                 <i class="fas fa-times"></i>
             </button>
@@ -2114,51 +2307,51 @@
             <ul>
                 <li class="mb-4">
                     <button id="nav-dashboard" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white bg-blue-700 shadow-md">
-                        <i class="fas fa-chart-line ml-3"></i> <span data-i18n="dashboard">لوحة التحكم</span>
+                        <i class="fas fa-chart-line ml-3"></i> <span data-i18n="dashboard">Dashboard</span>
                     </button>
                 </li>
                 <li class="mb-4">
                     <button id="nav-accel-gyro" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
-                        <i class="fas fa-tachometer-alt ml-3"></i> <span data-i18n="acceleration_gyro_data">بيانات التسارع والجيروسكوب</span>
+                        <i class="fas fa-tachometer-alt ml-3"></i> <span data-i18n="acceleration_gyro_data">Acceleration & Gyro Data</span>
                     </button>
                 </li>
                 <li class="mb-4">
                     <button id="nav-full-table" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
-                        <i class="fas fa-table ml-3"></i> <span data-i18n="full_table_with_filters">الجدول الكامل مع التصفية</span>
+                        <i class="fas fa-table ml-3"></i> <span data-i18n="full_table_with_filters">Full Table with Filters</span>
                     </button>
                 </li>
                 <li class="mb-4">
                     <button id="nav-charts" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
-                        <i class="fas fa-chart-area ml-3"></i> <span data-i18n="charts">الرسوم البيانية</span>
+                        <i class="fas fa-chart-area ml-3"></i> <span data-i18n="charts">Charts</span>
                     </button>
                 </li>
                 <li class="mb-4">
                     <button id="nav-alert-log" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
-                        <i class="fas fa-bell ml-3"></i> <span data-i18n="alert_log">سجل التنبيهات</span>
+                        <i class="fas fa-bell ml-3"></i> <span data-i18n="alert_log">Alert Log</span>
                     </button>
                 </li>
                 <li class="mb-4">
                     <button id="nav-alert-settings" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
-                        <i class="fas fa-cog ml-3"></i> <span data-i18n="alert_threshold_settings">إعدادات حدود التنبيه</span>
+                        <i class="fas fa-cog ml-3"></i> <span data-i18n="alert_threshold_settings">Alert Threshold Settings</span>
                     </button>
                 </li>
                 <li class="mb-4">
                     <button id="nav-predictive-maintenance" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
-                        <i class="fas fa-tools ml-3"></i> <span data-i18n="predictive_maintenance">الصيانة التنبؤية</span>
+                        <i class="fas fa-tools ml-3"></i> <span data-i18n="predictive_maintenance">Predictive Maintenance</span>
                     </button>
                 </li>
             </ul>
         </nav>
         <div class="mt-8 border-t border-gray-700 pt-4">
-            <h3 class="text-gray-400 text-sm mb-2" data-i18n="language">اللغة</h3>
+            <h3 class="text-gray-400 text-sm mb-2" data-i18n="language">Language</h3>
             <select id="lang-select" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
                 <option value="ar" data-i18n="arabic">العربية</option>
-                <option value="en" data-i18n="english">English</option>
+                <option value="en" data-i18n="english" selected>English</option> <!-- Set English as selected -->
                 <option value="fr" data-i18n="french">Français</option>
             </select>
         </div>
         <div class="mt-4 text-sm text-gray-400">
-            <p id="user-id-display" data-i18n="user_id_placeholder">معرف المستخدم: تحميل...</p>
+            <p id="user-id-display" data-i18n="user_id_placeholder">User ID: Loading...</p>
         </div>
     </aside>
 
@@ -2170,16 +2363,16 @@
 
         <!-- Dashboard Section -->
         <section id="dashboard-section" class="content-section">
-            <h2 class="text-3xl font-bold mb-8" data-i18n="dashboard">لوحة التحكم</h2>
+            <h2 class="text-3xl font-bold mb-8" data-i18n="dashboard">Dashboard</h2>
 
             <!-- Sensor Data Overview -->
             <div class="glassmorphism-card p-6 rounded-xl mb-8">
-                <h3 class="text-xl font-semibold mb-6" data-i18n="sensor_data_overview">نظرة عامة على بيانات المستشعر</h3>
+                <h3 class="text-xl font-semibold mb-6" data-i18n="sensor_data_overview">Sensor Data Overview</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <!-- Temperature Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="temperature">درجة الحرارة</span>
+                            <span class="text-gray-400 text-sm" data-i18n="temperature">Temperature</span>
                             <i class="fas fa-thermometer-half text-blue-400 text-xl"></i>
                         </div>
                         <p id="temp-value" class="text-3xl font-bold text-white">-- °C</p>
@@ -2187,7 +2380,7 @@
                     <!-- Humidity Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="humidity">الرطوبة</span>
+                            <span class="text-gray-400 text-sm" data-i18n="humidity">Humidity</span>
                             <i class="fas fa-tint text-green-400 text-xl"></i>
                         </div>
                         <p id="humidity-value" class="text-3xl font-bold text-white">-- %</p>
@@ -2195,7 +2388,7 @@
                     <!-- Vibration Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="vibration">الاهتزاز</span>
+                            <span class="text-gray-400 text-sm" data-i18n="vibration">Vibration</span>
                             <i class="fas fa-wave-square text-purple-400 text-xl"></i>
                         </div>
                         <p id="vibration-value" class="text-3xl font-bold text-white">-- G</p>
@@ -2203,7 +2396,7 @@
                     <!-- NTC Temperature Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="ntc_temp">درجة حرارة NTC</span>
+                            <span class="text-gray-400 text-sm" data-i18n="ntc_temp">NTC Temperature</span>
                             <i class="fas fa-temperature-low text-orange-400 text-xl"></i>
                         </div>
                         <p id="ntc-temp-value" class="text-3xl font-bold text-white">-- °C</p>
@@ -2211,7 +2404,7 @@
                     <!-- Current Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="current">التيار</span>
+                            <span class="text-gray-400 text-sm" data-i18n="current">Current</span>
                             <i class="fas fa-bolt text-yellow-400 text-xl"></i>
                         </div>
                         <p id="current-value" class="text-3xl font-bold text-white">-- A</p>
@@ -2219,7 +2412,7 @@
                     <!-- Battery Voltage Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="battery_voltage">جهد البطارية</span>
+                            <span class="text-gray-400 text-sm" data-i18n="battery_voltage">Battery Voltage</span>
                             <i class="fas fa-battery-full text-red-400 text-xl"></i>
                         </div>
                         <p id="battery-value" class="text-3xl font-bold text-white">-- V</p>
@@ -2229,21 +2422,21 @@
 
             <!-- Latest Full Data Record -->
             <div class="glassmorphism-card p-6 rounded-xl mb-8">
-                <h3 class="text-xl font-semibold mb-6" data-i18n="latest_full_data_record">أحدث سجل بيانات كامل</h3>
+                <h3 class="text-xl font-semibold mb-6" data-i18n="latest_full_data_record">Latest Full Data Record</h3>
                 <div id="latest-full-data-content" class="text-gray-300">
                     <!-- Latest full data will be populated here by JavaScript -->
-                    <p class="text-gray-400" data-i18n="no_data_available">لا توجد بيانات متاحة.</p>
+                    <p class="text-gray-400" data-i18n="no_data_available">No data available.</p>
                 </div>
             </div>
 
             <!-- Insight Generation -->
             <div class="glassmorphism-card p-6 rounded-xl mb-8">
-                <h3 class="text-xl font-semibold mb-6" data-i18n="generate_insight">توليد رؤى ✨</h3>
+                <h3 class="text-xl font-semibold mb-6" data-i18n="generate_insight">Generate Insight ✨</h3>
                 <button id="generate-insight-btn" class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-300 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                    <i class="fas fa-magic ml-2"></i> <span data-i18n="generate_insight">توليد رؤى ✨</span>
+                    <i class="fas fa-magic ml-2"></i> <span data-i18n="generate_insight">Generate Insight ✨</span>
                 </button>
                 <div class="bg-gray-800 p-4 rounded-lg text-gray-300 relative">
-                    <p id="insight-output" class="text-sm italic" data-i18n="no_insights_generated">انقر على "توليد رؤى" للحصول على ملخص تحليلي لبيانات المستشعر.</p>
+                    <p id="insight-output" class="text-sm italic" data-i18n="no_insights_generated">Click "Generate Insight" to get an analytical summary of sensor data.</p>
                     <button id="insight-copy-btn" class="absolute top-2 left-2 bg-gray-700 hover:bg-gray-600 text-white text-sm py-1 px-2 rounded-md hidden transform hover:scale-105 transition-all duration-200" data-i18n="copy_insight">
                         <i class="fas fa-copy"></i>
                     </button>
@@ -2253,81 +2446,81 @@
             <!-- Auto Refresh & User ID -->
             <div class="flex flex-wrap items-center justify-between gap-4 glassmorphism-card p-6 rounded-xl">
                 <button id="auto-refresh-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                    <i class="fas fa-play ml-2"></i> <span data-i18n="enable_auto_refresh">تفعيل التحديث التلقائي</span>
+                    <i class="fas fa-play ml-2"></i> <span data-i18n="enable_auto_refresh">Enable Auto Refresh</span>
                 </button>
-                <p id="user-id-display" class="text-gray-400 text-sm" data-i18n="user_id_placeholder">معرف المستخدم: تحميل...</p>
+                <p id="user-id-display" class="text-gray-400 text-sm" data-i18n="user_id_placeholder">User ID: Loading...</p>
             </div>
         </section>
 
         <!-- Acceleration & Gyro Data Section -->
         <section id="accel-gyro-section" class="content-section hidden">
-            <h2 class="text-3xl font-bold mb-8" data-i18n="acceleration_gyro_data">بيانات التسارع والجيروسكوب</h2>
+            <h2 class="text-3xl font-bold mb-8" data-i18n="acceleration_gyro_data">Acceleration & Gyro Data</h2>
             <div class="glassmorphism-card p-6 rounded-xl mb-8">
-                <h3 class="text-xl font-semibold mb-6" data-i18n="acceleration_data">بيانات التسارع</h3>
+                <h3 class="text-xl font-semibold mb-6" data-i18n="acceleration_data">Acceleration Data</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <!-- Accel X Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="acceleration_x">التسارع س</span>
+                            <span class="text-gray-400 text-sm" data-i18n="acceleration_x">Acceleration X</span>
                             <i class="fas fa-square-root-alt text-teal-400 text-xl"></i>
                         </div>
                         <p id="accel-x-value" class="text-3xl font-bold text-white">-- G</p>
-                        <p id="accel-x-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
-                        <button id="view-accel-x-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                        <p id="accel-x-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">Normal</p>
+                        <button id="view-accel-x-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">View Chart</button>
                     </div>
                     <!-- Accel Y Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="acceleration_y">التسارع ص</span>
+                            <span class="text-gray-400 text-sm" data-i18n="acceleration_y">Acceleration Y</span>
                             <i class="fas fa-square-root-alt text-teal-400 text-xl"></i>
                         </div>
                         <p id="accel-y-value" class="text-3xl font-bold text-white">-- G</p>
-                        <p id="accel-y-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
-                        <button id="view-accel-y-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                        <p id="accel-y-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">Normal</p>
+                        <button id="view-accel-y-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">View Chart</button>
                     </div>
                     <!-- Accel Z Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="acceleration_z">التسارع ع</span>
+                            <span class="text-gray-400 text-sm" data-i18n="acceleration_z">Acceleration Z</span>
                             <i class="fas fa-square-root-alt text-teal-400 text-xl"></i>
                         </div>
                         <p id="accel-z-value" class="text-3xl font-bold text-white">-- G</p>
-                        <p id="accel-z-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
-                        <button id="view-accel-z-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                        <p id="accel-z-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">Normal</p>
+                        <button id="view-accel-z-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">View Chart</button>
                     </div>
                 </div>
 
-                <h3 class="text-xl font-semibold mb-6" data-i18n="gyroscope_data">بيانات الجيروسكوب</h3>
+                <h3 class="text-xl font-semibold mb-6" data-i18n="gyroscope_data">Gyroscope Data</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Gyro X Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="gyro_x">جيروسكوب س</span>
+                            <span class="text-gray-400 text-sm" data-i18n="gyro_x">Gyro X</span>
                             <i class="fas fa-compass text-pink-400 text-xl"></i>
                         </div>
                         <p id="gyro-x-value" class="text-3xl font-bold text-white">-- deg/s</p>
-                        <p id="gyro-x-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
-                        <button id="view-gyro-x-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                        <p id="gyro-x-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">Normal</p>
+                        <button id="view-gyro-x-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">View Chart</button>
                     </div>
                     <!-- Gyro Y Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="gyro_y">جيروسكوب ص</span>
+                            <span class="text-gray-400 text-sm" data-i18n="gyro_y">Gyro Y</span>
                             <i class="fas fa-compass text-pink-400 text-xl"></i>
                         </div>
                         <p id="gyro-y-value" class="text-3xl font-bold text-white">-- deg/s</p>
-                        <p id="gyro-y-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
-                        <button id="view-gyro-y-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                        <p id="gyro-y-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">Normal</p>
+                        <button id="view-gyro-y-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">View Chart</button>
                     </div>
                     <!-- Gyro Z Card -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-gray-400 text-sm" data-i18n="gyro_z">جيروسكوب ع</span>
+                            <span class="text-gray-400 text-sm" data-i18n="gyro_z">Gyro Z</span>
                             <i class="fas fa-compass text-pink-400 text-xl"></i>
                         </div>
                         <p id="gyro-z-value" class="text-3xl font-bold text-white">-- deg/s</p>
-                        <p id="gyro-z-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
-                        <button id="view-gyro-z-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                        <p id="gyro-z-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">Normal</p>
+                        <button id="view-gyro-z-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">View Chart</button>
                     </div>
                 </div>
             </div>
@@ -2335,53 +2528,53 @@
 
         <!-- Full Table with Filters Section -->
         <section id="full-table-section" class="content-section hidden">
-            <h2 class="text-3xl font-bold mb-8" data-i18n="full_table_with_filters">الجدول الكامل مع التصفية</h2>
+            <h2 class="text-3xl font-bold mb-8" data-i18n="full_table_with_filters">Full Table with Filters</h2>
 
             <!-- Filter Controls -->
             <div class="glassmorphism-card p-6 rounded-xl mb-8">
-                <h3 class="text-xl font-semibold mb-6" data-i18n="filter_data">تصفية البيانات</h3>
+                <h3 class="text-xl font-semibold mb-6" data-i18n="filter_data">Filter Data</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <div>
-                        <label for="filter-start-date" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="start_date">تاريخ البدء</label>
+                        <label for="filter-start-date" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="start_date">Start Date</label>
                         <input type="date" id="filter-start-date" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                     </div>
                     <div>
-                        <label for="filter-start-time" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="start_time">وقت البدء</label>
+                        <label for="filter-start-time" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="start_time">Start Time</label>
                         <input type="time" id="filter-start-time" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                     </div>
                     <div>
-                        <label for="filter-end-date" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="end_date">تاريخ الانتهاء</label>
+                        <label for="filter-end-date" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="end_date">End Date</label>
                         <input type="date" id="filter-end-date" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                     </div>
                     <div>
-                        <label for="filter-end-time" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="end_time">وقت الانتهاء</label>
+                        <label for="filter-end-time" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="end_time">End Time</label>
                         <input type="time" id="filter-end-time" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     <div>
-                        <label for="filter-sensor-type" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="sensor_type">نوع المستشعر</label>
+                        <label for="filter-sensor-type" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="sensor_type">Sensor Type</label>
                         <select id="filter-sensor-type" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <option value="all" data-i18n="all_sensor_types">جميع أنواع المستشعرات</option>
+                            <option value="all" data-i18n="all_sensor_types">All Sensor Types</option>
                         </select>
                     </div>
                     <div class="flex items-end gap-2">
-                        <button id="filter-apply-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full" data-i18n="apply_filters">تطبيق الفلاتر</button>
-                        <button id="filter-reset-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full" data-i18n="reset_filters">إعادة تعيين</button>
+                        <button id="filter-apply-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full" data-i18n="apply_filters">Apply Filters</button>
+                        <button id="filter-reset-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full" data-i18n="reset_filters">Reset</button>
                     </div>
                     <div>
-                        <label for="search-table" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="search_table">بحث في الجدول...</label>
-                        <input type="text" id="search-table" placeholder="بحث..." class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        <label for="search-table" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="search_table">Search table...</label>
+                        <input type="text" id="search-table" placeholder="Search..." class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                     </div>
                 </div>
                 <div class="mb-4">
-                    <h4 class="text-gray-300 text-sm font-medium mb-2" data-i18n="quick_filters">فلاتر سريعة</h4>
+                    <h4 class="text-gray-300 text-sm font-medium mb-2" data-i18n="quick_filters">Quick Filters</h4>
                     <div class="flex flex-wrap gap-2">
-                        <button id="quick-filter-1h" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_hour">آخر ساعة</button>
-                        <button id="quick-filter-24h" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_24_hours">آخر 24 ساعة</button>
-                        <button id="quick-filter-7d" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_7_days">آخر 7 أيام</button>
-                        <button id="quick-filter-30d" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_30_days">آخر 30 يومًا</button>
-                        <button id="quick-filter-all" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="all_time">جميع الأوقات</button>
+                        <button id="quick-filter-1h" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_hour">Last Hour</button>
+                        <button id="quick-filter-24h" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_24_hours">Last 24 Hours</button>
+                        <button id="quick-filter-7d" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_7_days">Last 7 Days</button>
+                        <button id="quick-filter-30d" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_30_days">Last 30 Days</button>
+                        <button id="quick-filter-all" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="all_time">All Time</button>
                     </div>
                 </div>
             </div>
@@ -2405,7 +2598,7 @@
                             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Temp. NTC (°C)</th>
                             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Courant (V Bruts)</th>
                             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Batterie (V)</th>
-                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="device_id">معرف الجهاز</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="device_id">Device ID</th>
                         </tr>
                     </thead>
                     <tbody id="sensor-table-body" class="bg-gray-900 divide-y divide-gray-800">
@@ -2415,31 +2608,31 @@
 
                 <!-- Pagination Controls -->
                 <div class="flex justify-between items-center mt-6">
-                    <button id="prev-page-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" data-i18n="previous">السابق</button>
-                    <span id="page-info" class="text-gray-300" data-i18n="page_info_placeholder">صفحة 1 من 1</span>
-                    <button id="next-page-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" data-i18n="next">التالي</button>
+                    <button id="prev-page-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" data-i18n="previous">Previous</button>
+                    <span id="page-info" class="text-gray-300" data-i18n="page_info_placeholder">Page 1 of 1</span>
+                    <button id="next-page-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" data-i18n="next">Next</button>
                 </div>
 
                 <!-- Export Buttons -->
                 <div class="flex justify-end gap-4 mt-6">
-                    <button id="export-csv-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="export_to_csv">تصدير إلى CSV</button>
-                    <button id="export-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="export_to_pdf">تصدير إلى PDF</button>
+                    <button id="export-csv-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="export_to_csv">Export to CSV</button>
+                    <button id="export-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="export_to_pdf">Export to PDF</button>
                 </div>
             </div>
         </section>
 
         <!-- Charts Section -->
         <section id="charts-section" class="content-section hidden">
-            <h2 class="text-3xl font-bold mb-8" data-i18n="charts">الرسوم البيانية</h2>
+            <h2 class="text-3xl font-bold mb-8" data-i18n="charts">Charts</h2>
             <div class="glassmorphism-card p-6 rounded-xl mb-8">
-                <h3 class="text-xl font-semibold mb-6" data-i18n="select_sensors_for_charts">اختر المستشعرات للرسوم البيانية</h3>
+                <h3 class="text-xl font-semibold mb-6" data-i18n="select_sensors_for_charts">Select Sensors for Charts</h3>
                 <div id="chart-sensor-select" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
                     <!-- Checkboxes for sensor selection will be populated by JavaScript -->
                 </div>
                 <div class="flex flex-wrap gap-4 mb-8">
-                    <button id="select-all-charts-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="select_all">تحديد الكل</button>
-                    <button id="reset-chart-selections-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="reset_selections">إعادة تعيين التحديدات</button>
-                    <button id="apply-chart-changes-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="apply_changes">تطبيق التغييرات</button>
+                    <button id="select-all-charts-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="select_all">Select All</button>
+                    <button id="reset-chart-selections-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="reset_selections">Reset Selections</button>
+                    <button id="apply-chart-changes-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="apply_changes">Apply Changes</button>
                 </div>
 
                 <!-- Chart Canvas -->
@@ -2449,43 +2642,43 @@
 
                 <!-- Chart Statistics -->
                 <div class="flex justify-around items-center bg-gray-800 p-4 rounded-lg shadow-md text-lg font-semibold">
-                    <span id="chart-stats-min" data-i18n="min_placeholder">الحد الأدنى: N/A</span>
-                    <span id="chart-stats-max" data-i18n="max_placeholder">الحد الأقصى: N/A</span>
-                    <span id="chart-stats-avg" data-i18n="avg_placeholder">المتوسط: N/A</span>
+                    <span id="chart-stats-min" data-i18n="min_placeholder">Min: N/A</span>
+                    <span id="chart-stats-max" data-i18n="max_placeholder">Max: N/A</span>
+                    <span id="chart-stats-avg" data-i18n="avg_placeholder">Avg: N/A</span>
                 </div>
             </div>
         </section>
 
         <!-- Alert Log Section -->
         <section id="alert-log-section" class="content-section hidden">
-            <h2 class="text-3xl font-bold mb-8" data-i18n="alert_log">سجل التنبيهات</h2>
+            <h2 class="text-3xl font-bold mb-8" data-i18n="alert_log">Alert Log</h2>
             <div class="glassmorphism-card p-6 rounded-xl mb-8">
                 <div class="flex flex-wrap items-center gap-4 mb-6">
                     <div>
-                        <label for="alert-severity-filter" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="alert_severity">خطورة التنبيه</label>
+                        <label for="alert-severity-filter" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="alert_severity">Alert Severity</label>
                         <select id="alert-severity-filter" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <option value="all" data-i18n="all">الكل</option>
-                            <option value="critical" data-i18n="critical">حرج</option>
-                            <option value="warning" data-i18n="warning">تحذير</option>
+                            <option value="all" data-i18n="all">All</option>
+                            <option value="critical" data-i18n="critical">Critical</option>
+                            <option value="warning" data-i18n="warning">Warning</option>
                         </select>
                     </div>
                     <div>
-                        <label for="alert-sensor-filter" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="sensor_type">نوع المستشعر</label>
+                        <label for="alert-sensor-filter" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="sensor_type">Sensor Type</label>
                         <select id="alert-sensor-filter" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <option value="all" data-i18n="all_sensor_types">جميع أنواع المستشعرات</option>
+                            <option value="all" data-i18n="all_sensor_types">All Sensor Types</option>
                             <!-- Sensor types will be populated by JavaScript -->
                         </select>
                     </div>
                     <div>
-                        <label for="alert-sort-order" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="sort_by">فرز حسب</label>
+                        <label for="alert-sort-order" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="sort_by">Sort By</label>
                         <select id="alert-sort-order" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
-                            <option value="latest" data-i18n="latest_first">الأحدث أولاً</option>
-                            <option value="oldest" data-i18n="oldest_first">الأقدم أولاً</option>
-                            <option value="sensorType" data-i18n="sensor_type_asc">نوع المستشعر (تصاعدي)</option>
+                            <option value="latest" data-i18n="latest_first">Latest First</option>
+                            <option value="oldest" data-i18n="oldest_first">Oldest First</option>
+                            <option value="sensorType" data-i18n="sensor_type_asc">Sensor Type (Asc)</option>
                         </select>
                     </div>
                     <div class="flex items-end flex-grow justify-end">
-                        <button id="clear-alert-log-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="clear_alert_log">مسح سجل التنبيهات</button>
+                        <button id="clear-alert-log-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="clear_alert_log">Clear Alert Log</button>
                     </div>
                 </div>
 
@@ -2493,10 +2686,11 @@
                     <table class="min-w-full divide-y divide-gray-700">
                         <thead class="bg-gray-800">
                             <tr>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="timestamp">الطابع الزمني</th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="alert_severity">خطورة التنبيه</th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="sensor_type">نوع المستشعر</th>
-                                <th scope="col" class="px-6 py-4 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="message">الرسالة</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="timestamp">Timestamp</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="alert_severity">Alert Severity</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="sensor_type">Sensor Type</th>
+                                <th scope="col" class="px-6 py-4 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="message">Message</th>
+                                <th scope="col" class="px-6 py-4 text-right text-xs font-medium text-gray-300 uppercase tracking-wider"></th> <!-- For View Details button -->
                             </tr>
                         </thead>
                         <tbody id="alert-log-body" class="bg-gray-900 divide-y divide-gray-800">
@@ -2509,260 +2703,260 @@
 
         <!-- Alert Threshold Settings Section -->
         <section id="alert-settings-section" class="content-section hidden">
-            <h2 class="text-3xl font-bold mb-8" data-i18n="alert_threshold_settings">إعدادات حدود التنبيه</h2>
+            <h2 class="text-3xl font-bold mb-8" data-i18n="alert_threshold_settings">Alert Threshold Settings</h2>
             <div class="glassmorphism-card p-6 rounded-xl mb-8">
-                <h3 class="text-xl font-semibold mb-6" data-i18n="threshold_settings">إعدادات الحدود</h3>
+                <h3 class="text-xl font-semibold mb-6" data-i18n="threshold_settings">Threshold Settings</h3>
 
                 <div class="grid grid-cols-1 gap-6">
                     <!-- Sensor Threshold Template (will be repeated for each sensor) -->
                     <!-- Temperature -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="temperature">درجة الحرارة</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="temperature">Temperature</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="temperature-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="temperature-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="temperature-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="temperature-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="temperature-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="temperature-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                     <!-- Humidity -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="humidity">الرطوبة</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="humidity">Humidity</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="humidity-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="humidity-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="humidity-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="humidity-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="humidity-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="humidity-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                      <!-- Vibration -->
                      <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="vibration">الاهتزاز</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="vibration">Vibration</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="vibration-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="vibration-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="vibration-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="vibration-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="vibration-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="vibration-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                      <!-- NTC Temperature -->
                      <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="ntc_temp">درجة حرارة NTC</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="ntc_temp">NTC Temperature</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="ntc_temp-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="ntc_temp-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="ntc_temp-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="ntc_temp-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="ntc_temp-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="ntc_temp-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                     <!-- Current -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="current">التيار</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="current">Current</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="current-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="current-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="current-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="current-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="current-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="current-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                     <!-- Battery Voltage -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="battery_voltage">جهد البطارية</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="battery_voltage">Battery Voltage</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="battery_voltage-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="battery_voltage-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="battery_voltage-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="battery_voltage-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="battery_voltage-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="battery_voltage-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                     <!-- Acceleration X -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="acceleration_x">التسارع س</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="acceleration_x">Acceleration X</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="acceleration_x-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="acceleration_x-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="acceleration_x-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="acceleration_x-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="acceleration_x-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="acceleration_x-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                     <!-- Acceleration Y -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="acceleration_y">التسارع ص</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="acceleration_y">Acceleration Y</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="acceleration_y-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="acceleration_y-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="acceleration_y-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="acceleration_y-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="acceleration_y-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="acceleration_y-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                     <!-- Acceleration Z -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="acceleration_z">التسارع ع</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="acceleration_z">Acceleration Z</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="acceleration_z-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="acceleration_z-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="acceleration_z-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="acceleration_z-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="acceleration_z-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="acceleration_z-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                     <!-- Gyro X -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="gyro_x">جيروسكوب س</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="gyro_x">Gyro X</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="gyro_x-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="gyro_x-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="gyro_x-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="gyro_x-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="gyro_x-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="gyro_x-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                     <!-- Gyro Y -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="gyro_y">جيروسكوب ص</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="gyro_y">Gyro Y</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="gyro_y-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="gyro_y-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="gyro_y-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="gyro_y-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="gyro_y-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="gyro_y-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
                     </div>
                     <!-- Gyro Z -->
                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
-                        <h4 class="text-lg font-bold mb-4" data-i18n="gyro_z">جيروسكوب ع</h4>
+                        <h4 class="text-lg font-bold mb-4" data-i18n="gyro_z">Gyro Z</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
-                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
-                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="level">Level</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">Min Value</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">Max Value</div>
 
-                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <span class="text-green-400" data-i18n="normal">Normal</span>
                             <input type="number" step="0.1" id="gyro_z-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="gyro_z-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <span class="text-yellow-400" data-i18n="warning">Warning</span>
                             <input type="number" step="0.1" id="gyro_z-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="gyro_z-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
 
-                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <span class="text-red-400" data-i18n="critical">Critical</span>
                             <input type="number" step="0.1" id="gyro_z-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                             <input type="number" step="0.1" id="gyro_z-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
                         </div>
@@ -2771,20 +2965,20 @@
                 </div>
 
                 <div class="flex justify-end gap-4 mt-6">
-                    <button id="save-thresholds-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="save_changes">حفظ التغييرات</button>
-                    <button id="reset-thresholds-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="reset_to_defaults">إعادة تعيين إلى الافتراضيات</button>
+                    <button id="save-thresholds-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="save_changes">Save Changes</button>
+                    <button id="reset-thresholds-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="reset_to_defaults">Reset to Defaults</button>
                 </div>
             </div>
         </section>
 
         <!-- Predictive Maintenance Section (NEW) -->
         <section id="predictive-maintenance-section" class="content-section hidden">
-            <h2 class="text-3xl font-bold mb-8" data-i18n="predictive_maintenance">الصيانة التنبؤية</h2>
+            <h2 class="text-3xl font-bold mb-8" data-i18n="predictive_maintenance">Predictive Maintenance</h2>
             <div class="glassmorphism-card p-6 rounded-xl mb-8">
-                <h3 class="text-xl font-semibold mb-6">تنبيهات الصيانة التنبؤية</h3>
+                <h3 class="text-xl font-semibold mb-6">Predictive Maintenance Alerts</h3>
                 <div id="predictive-maintenance-alerts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <!-- Predictive maintenance alerts will be populated here by JavaScript -->
-                    <p class="text-gray-400" data-i18n="no_predictive_alerts">لا توجد تنبيهات صيانة تنبؤية في الوقت الحالي.</p>
+                    <p class="text-gray-400" data-i18n="no_predictive_alerts">No predictive maintenance alerts at this time.</p>
                 </div>
             </div>
         </section>
