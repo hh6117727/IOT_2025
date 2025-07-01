@@ -1,148 +1,2674 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar">
 <head>
-  <meta charset="UTF-8">
-  <title>Gestion des Tâches</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم بيانات المستشعر - PROJET IOT 2025</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <!-- Chart.js Date Adapter for date-fns -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <!-- jsPDF and html2canvas CDNs for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // استيراد وحدات Firebase الضرورية
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-  <!-- Connexion -->
-  <div id="loginForm" class="bg-white p-6 rounded shadow-md w-full max-w-md">
-    <h2 class="text-xl font-bold mb-4">🔐 Connexion</h2>
-    <input type="text" id="username" placeholder="Nom d'utilisateur" class="border p-2 w-full mb-2" />
-    <input type="password" id="password" placeholder="Mot de passe" class="border p-2 w-full mb-4" />
-    <button onclick="login()" class="bg-blue-500 text-white px-4 py-2 rounded">Se connecter</button>
-    <p id="loginError" class="text-red-500 mt-2 hidden">Identifiants invalides</p>
-  </div>
+        // تعريف المتغيرات العامة لـ Firebase والبيانات
+        let app;
+        let db;
+        let auth;
+        let currentUserId = 'default-user'; // سيتم تحديثه بعد المصادقة
+        let autoRefreshInterval; // لآلية التحديث التلقائي
+        let currentLanguage = 'ar'; // اللغة الافتراضية
+        let translations = {}; // لتخزين ملفات الترجمة
 
-  <!-- Panneau admin -->
-  <div id="adminPanel" class="hidden bg-white p-6 rounded shadow-md w-full max-w-2xl mt-6">
-    <h2 class="text-xl font-bold mb-4">👤 Panneau Administrateur</h2>
+        // عنوان URL لواجهة برمجة تطبيقات Google Sheets Scripts
+        const GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/AKfycbxO7soutfxNmG1Vy6KvuZ4ZS96qWg9nJouY-vjvKt3_i-kQh4wa3hBbU0-vuqgU8jF02g/exec";
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=`; // مفتاح API سيتم توفيره في وقت التشغيل
 
-    <h3 class="font-semibold mb-1">Ajouter une tâche :</h3>
-    <div class="flex gap-2 mb-4">
-      <input type="date" id="taskDate" class="border p-2 w-1/3" />
-      <input type="text" id="taskTechnicien" placeholder="Nom du technicien" class="border p-2 w-1/3" />
-      <input type="text" id="taskDesc" placeholder="Description de tâche" class="border p-2 w-1/3" />
-    </div>
-    <button onclick="addTask()" class="bg-green-500 text-white px-4 py-2 rounded mb-6">➕ Ajouter tâche</button>
+        // تعريف مفتاح API (سيتم توفيره تلقائيًا في بيئة Canvas)
+        const apiKey = ""; // اترك هذا فارغًا، سيتم توفيره تلقائيًا
 
-    <h3 class="font-semibold mb-1">Ajouter utilisateur :</h3>
-    <div class="flex gap-2 mb-4">
-      <input type="text" id="newUsername" placeholder="Nom" class="border p-2 w-1/3" />
-      <input type="text" id="newPassword" placeholder="Mot de passe" class="border p-2 w-1/3" />
-      <select id="newRole" class="border p-2 w-1/3">
-        <option value="admin">Admin</option>
-        <option value="technicien">Technicien</option>
-      </select>
-    </div>
-    <button onclick="addUser()" class="bg-purple-500 text-white px-4 py-2 rounded">➕ Ajouter utilisateur</button>
-  </div>
+        // تهيئة Firebase
+        const initializeFirebase = async () => {
+            try {
+                // تحقق مما إذا كانت المتغيرات سرايا (globally defined)
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 
-  <!-- Panneau technicien -->
-  <div id="techPanel" class="hidden bg-white p-6 rounded shadow-md w-full max-w-2xl mt-6">
-    <h2 class="text-xl font-bold mb-4">📋 Mes Tâches</h2>
-    <ul id="taskList" class="space-y-2"></ul>
-  </div>
+                if (Object.keys(firebaseConfig).length === 0) {
+                    console.error("خطأ: لم يتم توفير تهيئة Firebase.");
+                    showNotification("خطأ في تهيئة Firebase", "critical");
+                    return;
+                }
 
-  <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbz0QW_iHnN-szxYWWtq19uPL3TnpjjXbp6kma5bdLrVyZIeuQ8mZK1_iwISOgYd959A/exec";
-    let currentUser = "";
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
 
-    async function login() {
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value.trim();
+                // الاستماع إلى تغييرات حالة المصادقة
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        currentUserId = user.uid;
+                        document.getElementById('user-id-display').textContent = `معرف المستخدم: ${currentUserId}`;
+                        console.log("تم تسجيل دخول المستخدم:", currentUserId);
+                        // بعد المصادقة، ابدأ في جلب البيانات
+                        // تم إزالة fetchSensorDataRealtime() لأننا سنعتمد على البيانات التاريخية لملء البطاقات
+                        await fetchHistoricalSensorData();
+                        await fetchAlertThresholds();
+                        await fetchAlertLog();
+                        // تمكين التحديث التلقائي افتراضيًا
+                        toggleAutoRefresh(true);
+                    } else {
+                        // تسجيل الدخول كمجهول إذا لم يتم توفير رمز مميز
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                            console.log("تم تسجيل الدخول باستخدام الرمز المميز المخصص.");
+                        } else {
+                            await signInAnonymously(auth);
+                            console.log("تم تسجيل الدخول كمجهول.");
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("خطأ في تهيئة Firebase أو المصادقة:", error);
+                showNotification(`خطأ في التهيئة: ${error.message}`, "critical");
+            }
+        };
 
-      const res = await fetch(API_URL, {
-        method: "POST",
-        body: new URLSearchParams({ action: "login", username, password }),
-      });
-      const data = await res.json();
 
-      if (data.success) {
-        currentUser = username;
-        document.getElementById("loginForm").classList.add("hidden");
+        // --- وظائف عامة لواجهة المستخدم ---
+        /**
+         * يعرض رسالة إشعار مؤقتة (toast).
+         * @param {string} message - الرسالة المراد عرضها.
+         * @param {'success'|'error'|'warning'|'info'|'critical'} type - نوع الإشعار لتحديد النمط.
+         */
+        function showNotification(message, type) {
+            const notificationContainer = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white z-50 transition-transform transform duration-300 ease-out notification-item flex items-center space-x-2`;
 
-        if (data.role === "admin") {
-          document.getElementById("adminPanel").classList.remove("hidden");
-        } else {
-          document.getElementById("techPanel").classList.remove("hidden");
-          getTasks();
+            let bgColor = '';
+            let iconClass = '';
+            switch (type) {
+                case 'success':
+                    bgColor = 'bg-green-500';
+                    iconClass = 'fas fa-check-circle';
+                    break;
+                case 'error':
+                    bgColor = 'bg-red-500';
+                    iconClass = 'fas fa-times-circle';
+                    break;
+                case 'warning':
+                    bgColor = 'bg-yellow-500';
+                    iconClass = 'fas fa-exclamation-triangle';
+                    break;
+                case 'info':
+                    bgColor = 'bg-blue-500';
+                    iconClass = 'fas fa-info-circle';
+                    break;
+                case 'critical':
+                    bgColor = 'bg-purple-500'; // استخدام اللون الأرجواني للحرج
+                    iconClass = 'fas fa-skull-crossbones';
+                    break;
+                default:
+                    bgColor = 'bg-gray-700';
+                    iconClass = 'fas fa-info-circle';
+            }
+
+            notification.classList.add(bgColor);
+            notification.innerHTML = `<i class="${iconClass} ml-2"></i> <span>${message}</span>`; // إضافة الأيقونة والرسالة
+
+            notificationContainer.appendChild(notification);
+
+            // إظهار الإشعار
+            setTimeout(() => {
+                notification.classList.add('translate-x-0', 'opacity-100');
+            }, 10);
+
+            // إخفاء وإزالة الإشعار بعد فترة
+            setTimeout(() => {
+                notification.classList.remove('translate-x-0', 'opacity-100');
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    notification.remove();
+                }, 300); // يجب أن يتطابق مع مدة الانتقال
+            }, 5000); // يظل مرئيًا لمدة 5 ثوانٍ
         }
-      } else {
-        document.getElementById("loginError").classList.remove("hidden");
-      }
-    }
 
-    async function addTask() {
-      const date = document.getElementById("taskDate").value;
-      const technicien = document.getElementById("taskTechnicien").value;
-      const task = document.getElementById("taskDesc").value;
+        // --- وظائف ترجمة اللغة ---
+        /**
+         * يجلب ملفات الترجمة.
+         * @param {string} lang - رمز اللغة (ar, en, fr).
+         * @returns {Object} - كائن الترجمات.
+         */
+        function getTranslations(lang) {
+            // بما أن الترجمات مضمنة في نفس الملف، يمكننا إرجاعها مباشرة
+            const allTranslations = {
+                'en': {
+                    "dashboard": "Dashboard",
+                    "acceleration_gyro_data": "Acceleration & Gyro Data",
+                    "full_table_with_filters": "Full Table with Filters",
+                    "charts": "Charts",
+                    "alert_log": "Alert Log",
+                    "alert_threshold_settings": "Alert Threshold Settings",
+                    "sensor_data_overview": "Sensor Data Overview",
+                    "latest_sensor_readings": "Latest Sensor Readings",
+                    "temperature": "Temperature",
+                    "humidity": "Humidity",
+                    "vibration": "Vibration",
+                    "ntc_temp": "NTC Temperature",
+                    "current": "Current",
+                    "battery_voltage": "Battery Voltage",
+                    "generate_insight": "Generate Insight ✨",
+                    "copy_insight": "Copy Insight",
+                    "auto_refresh": "Auto Refresh",
+                    "enable_auto_refresh": "Enable Auto Refresh",
+                    "disable_auto_refresh": "Disable Auto Refresh",
+                    "user_id": "User ID",
+                    "normal": "Normal",
+                    "warning": "Warning",
+                    "critical": "Critical",
+                    "view_chart": "View Chart",
+                    "filter_data": "Filter Data",
+                    "start_date": "Start Date",
+                    "start_time": "Start Time",
+                    "end_date": "End Date",
+                    "end_time": "End Time",
+                    "sensor_type": "Sensor Type",
+                    "all_sensor_types": "All Sensor Types",
+                    "apply_filters": "Apply Filters",
+                    "reset_filters": "Reset Filters",
+                    "quick_filters": "Quick Filters",
+                    "last_hour": "Last Hour",
+                    "last_24_hours": "Last 24 Hours",
+                    "last_7_days": "Last 7 Days",
+                    "last_30_days": "Last 30 Days",
+                    "all_time": "All Time",
+                    "search_table": "Search table...",
+                    "timestamp": "Timestamp",
+                    "value": "Value",
+                    "unit": "Unit",
+                    "device_id": "Device ID",
+                    "page": "Page",
+                    "of": "of",
+                    "previous": "Previous",
+                    "next": "Next",
+                    "export_to_csv": "Export to CSV",
+                    "export_to_pdf": "Export to PDF",
+                    "no_data_available": "No data available.",
+                    "select_sensors_for_charts": "Select Sensors for Charts",
+                    "select_all": "Select All",
+                    "reset_selections": "Reset Selections",
+                    "apply_changes": "Apply Changes",
+                    "min": "Min",
+                    "max": "Max",
+                    "avg": "Avg",
+                    "n_a": "N/A",
+                    "sensor_data_chart": "Sensor Data Chart",
+                    "alert_severity": "Alert Severity",
+                    "all": "All",
+                    "sort_by": "Sort By",
+                    "latest_first": "Latest First",
+                    "oldest_first": "Oldest First",
+                    "sensor_type_asc": "Sensor Type (Asc)",
+                    "clear_alert_log": "Clear Alert Log",
+                    "no_alerts_available": "No alerts available.",
+                    "threshold_settings": "Threshold Settings",
+                    "level": "Level",
+                    "min_value": "Min Value",
+                    "max_value": "Max Value",
+                    "save_changes": "Save Changes",
+                    "reset_to_defaults": "Reset to Defaults",
+                    "language": "Language",
+                    "arabic": "العربية",
+                    "english": "English",
+                    "french": "Français",
+                    "fetching_historical_data": "Fetching historical data...",
+                    "historical_data_fetched": "Historical data fetched successfully!",
+                    "auto_refresh_enabled": "Auto refresh enabled.",
+                    "auto_refresh_disabled": "Auto refresh disabled.",
+                    "generating_insights": "Generating insights...",
+                    "generating": "Generating",
+                    "insights_generated_success": "Insights generated successfully!",
+                    "no_insights_generated": "No insights could be generated for the current data.",
+                    "failed_to_generate_insights": "Failed to generate insights.",
+                    "error_generating_insights": "Error generating insights",
+                    "insights_copied": "Insights copied to clipboard!",
+                    "failed_to_copy_insights": "Failed to copy insights.",
+                    "no_data_to_export": "No data to export.",
+                    "data_exported_csv": "Data exported to CSV!",
+                    "exporting_pdf": "Exporting to PDF...",
+                    "data_exported_pdf": "Data exported to PDF!",
+                    "thresholds_loaded": "Alert thresholds loaded.",
+                    "thresholds_saved_success": "Alert thresholds saved successfully!",
+                    "thresholds_reset": "Alert thresholds reset to defaults!",
+                    "alert": "Alert",
+                    "value_is": "value is",
+                    "status_is": "status is",
+                    "confirm_clear_alerts": "Are you sure you want to clear all alerts?",
+                    "alerts_cleared": "Alerts cleared successfully!",
+                    "unknown": "Unknown",
+                    "insight_prompt_base": "Analyze the following sensor data and provide a concise summary of the current status, highlighting any anomalies or significant trends: ",
+                    "language_changed_to": "Language changed to",
+                    "acceleration_x": "Acceleration X",
+                    "acceleration_y": "Acceleration Y",
+                    "acceleration_z": "Acceleration Z",
+                    "gyro_x": "Gyro X",
+                    "gyro_y": "Gyro Y",
+                    "gyro_z": "Gyro Z",
+                    "latest_full_data_record": "Latest Full Data Record",
+                    "acceleration_data": "Acceleration Data",
+                    "gyroscope_data": "Gyroscope Data",
+                    "message": "Message"
+                },
+                'ar': {
+                    "dashboard": "لوحة التحكم",
+                    "acceleration_gyro_data": "بيانات التسارع والجيروسكوب",
+                    "full_table_with_filters": "الجدول الكامل مع التصفية",
+                    "charts": "الرسوم البيانية",
+                    "alert_log": "سجل التنبيهات",
+                    "alert_threshold_settings": "إعدادات حدود التنبيه",
+                    "sensor_data_overview": "نظرة عامة على بيانات المستشعر",
+                    "latest_sensor_readings": "أحدث قراءات المستشعر",
+                    "temperature": "درجة الحرارة",
+                    "humidity": "الرطوبة",
+                    "vibration": "الاهتزاز",
+                    "ntc_temp": "درجة حرارة NTC",
+                    "current": "التيار",
+                    "battery_voltage": "جهد البطارية",
+                    "generate_insight": "توليد رؤى ✨",
+                    "copy_insight": "نسخ الرؤى",
+                    "auto_refresh": "تحديث تلقائي",
+                    "enable_auto_refresh": "تفعيل التحديث التلقائي",
+                    "disable_auto_refresh": "تعطيل التحديث التلقائي",
+                    "user_id": "معرف المستخدم",
+                    "normal": "عادي",
+                    "warning": "تحذير",
+                    "critical": "حرج",
+                    "view_chart": "عرض الرسم البياني",
+                    "filter_data": "تصفية البيانات",
+                    "start_date": "تاريخ البدء",
+                    "start_time": "وقت البدء",
+                    "end_date": "تاريخ الانتهاء",
+                    "end_time": "وقت الانتهاء",
+                    "sensor_type": "نوع المستشعر",
+                    "all_sensor_types": "جميع أنواع المستشعرات",
+                    "apply_filters": "تطبيق الفلاتر",
+                    "reset_filters": "إعادة تعيين الفلاتر",
+                    "quick_filters": "فلاتر سريعة",
+                    "last_hour": "آخر ساعة",
+                    "last_24_hours": "آخر 24 ساعة",
+                    "last_7_days": "آخر 7 أيام",
+                    "last_30_days": "آخر 30 يومًا",
+                    "all_time": "جميع الأوقات",
+                    "search_table": "بحث في الجدول...",
+                    "timestamp": "الطابع الزمني",
+                    "value": "القيمة",
+                    "unit": "الوحدة",
+                    "device_id": "معرف الجهاز",
+                    "page": "صفحة",
+                    "of": "من",
+                    "previous": "السابق",
+                    "next": "التالي",
+                    "export_to_csv": "تصدير إلى CSV",
+                    "export_to_pdf": "تصدير إلى PDF",
+                    "no_data_available": "لا توجد بيانات متاحة.",
+                    "select_sensors_for_charts": "اختر المستشعرات للرسوم البيانية",
+                    "select_all": "تحديد الكل",
+                    "reset_selections": "إعادة تعيين التحديدات",
+                    "apply_changes": "تطبيق التغييرات",
+                    "min": "الحد الأدنى",
+                    "max": "الحد الأقصى",
+                    "avg": "المتوسط",
+                    "n_a": "غير متوفر",
+                    "sensor_data_chart": "رسم بياني لبيانات المستشعر",
+                    "alert_severity": "خطورة التنبيه",
+                    "all": "الكل",
+                    "sort_by": "فرز حسب",
+                    "latest_first": "الأحدث أولاً",
+                    "oldest_first": "الأقدم أولاً",
+                    "sensor_type_asc": "نوع المستشعر (تصاعدي)",
+                    "clear_alert_log": "مسح سجل التنبيهات",
+                    "no_alerts_available": "لا توجد تنبيهات متاحة.",
+                    "threshold_settings": "إعدادات الحدود",
+                    "level": "المستوى",
+                    "min_value": "الحد الأدنى للقيمة",
+                    "max_value": "الحد الأقصى للقيمة",
+                    "save_changes": "حفظ التغييرات",
+                    "reset_to_defaults": "إعادة تعيين إلى الافتراضيات",
+                    "language": "اللغة",
+                    "arabic": "العربية",
+                    "english": "English",
+                    "french": "Français",
+                    "fetching_historical_data": "جلب البيانات التاريخية...",
+                    "historical_data_fetched": "تم جلب البيانات التاريخية بنجاح!",
+                    "auto_refresh_enabled": "تم تفعيل التحديث التلقائي.",
+                    "auto_refresh_disabled": "تم تعطيل التحديث التلقائي.",
+                    "generating_insights": "توليد الرؤى...",
+                    "generating": "توليد",
+                    "insights_generated_success": "تم توليد الرؤى بنجاح!",
+                    "no_insights_generated": "لا يمكن توليد رؤى للبيانات الحالية.",
+                    "failed_to_generate_insights": "فشل في توليد الرؤى.",
+                    "error_generating_insights": "خطأ في توليد الرؤى",
+                    "insights_copied": "تم نسخ الرؤى إلى الحافظة!",
+                    "failed_to_copy_insights": "فشل في نسخ الرؤى.",
+                    "no_data_to_export": "لا توجد بيانات لتصديرها.",
+                    "data_exported_csv": "تم تصدير البيانات إلى CSV!",
+                    "exporting_pdf": "جاري التصدير إلى PDF...",
+                    "data_exported_pdf": "تم تصدير البيانات إلى PDF!",
+                    "thresholds_loaded": "تم تحميل حدود التنبيه.",
+                    "thresholds_saved_success": "تم حفظ حدود التنبيه بنجاح!",
+                    "thresholds_reset": "تم إعادة تعيين حدود التنبيه إلى الافتراضيات!",
+                    "alert": "تنبيه",
+                    "value_is": "القيمة هي",
+                    "status_is": "الحالة هي",
+                    "confirm_clear_alerts": "هل أنت متأكد أنك تريد مسح جميع التنبيهات؟",
+                    "alerts_cleared": "تم مسح التنبيهات بنجاح!",
+                    "unknown": "غير معروف",
+                    "insight_prompt_base": "حلل بيانات المستشعر التالية وقدم ملخصًا موجزًا للحالة الحالية، مع تسليط الضوء على أي شذوذ أو اتجاهات مهمة: ",
+                    "language_changed_to": "تم تغيير اللغة إلى",
+                    "acceleration_x": "التسارع س",
+                    "acceleration_y": "التسارع ص",
+                    "acceleration_z": "التسارع ع",
+                    "gyro_x": "جيروسكوب س",
+                    "gyro_y": "جيروسكوب ص",
+                    "gyro_z": "جيروسكوب ع",
+                    "latest_full_data_record": "أحدث سجل بيانات كامل",
+                    "acceleration_data": "بيانات التسارع",
+                    "gyroscope_data": "بيانات الجيروسكوب",
+                    "message": "الرسالة"
+                },
+                'fr': {
+                    "dashboard": "Tableau de bord",
+                    "acceleration_gyro_data": "Données d'accélération & Gyro",
+                    "full_table_with_filters": "Tableau complet avec filtres",
+                    "charts": "Graphiques",
+                    "alert_log": "Historique des alertes",
+                    "alert_threshold_settings": "Paramètres de seuil d'alerte",
+                    "sensor_data_overview": "Aperçu des données de capteur",
+                    "latest_sensor_readings": "Dernières lectures de capteur",
+                    "temperature": "Température",
+                    "humidity": "Humidité",
+                    "vibration": "Vibration",
+                    "ntc_temp": "Température NTC",
+                    "current": "Courant",
+                    "battery_voltage": "Tension de la batterie",
+                    "generate_insight": "Générer une perspicacité ✨",
+                    "copy_insight": "Copier la perspicacité",
+                    "auto_refresh": "Actualisation automatique",
+                    "enable_auto_refresh": "Activer l'actualisation automatique",
+                    "disable_auto_refresh": "Désactiver l'actualisation automatique",
+                    "user_id": "ID utilisateur",
+                    "normal": "Normal",
+                    "warning": "Avertissement",
+                    "critical": "Critique",
+                    "view_chart": "Voir le graphique",
+                    "filter_data": "Filtrer les données",
+                    "start_date": "Date de début",
+                    "start_time": "Heure de début",
+                    "end_date": "Date de fin",
+                    "end_time": "Heure de fin",
+                    "sensor_type": "Type de capteur",
+                    "all_sensor_types": "Tous les types de capteurs",
+                    "apply_filters": "Appliquer les filtres",
+                    "reset_filters": "Réinitialiser les filtres",
+                    "quick_filters": "Filtres rapides",
+                    "last_hour": "Dernière heure",
+                    "last_24_hours": "Dernières 24 heures",
+                    "last_7_days": "7 derniers jours",
+                    "last_30_days": "30 derniers jours",
+                    "all_time": "Tout le temps",
+                    "search_table": "Rechercher dans le tableau...",
+                    "timestamp": "Horodatage",
+                    "value": "Valeur",
+                    "unit": "Unité",
+                    "device_id": "ID de l'appareil",
+                    "page": "Page",
+                    "of": "de",
+                    "previous": "Précédent",
+                    "next": "Suivant",
+                    "export_to_csv": "Exporter en CSV",
+                    "export_to_pdf": "Exporter en PDF",
+                    "no_data_available": "Aucune donnée disponible.",
+                    "select_sensors_for_charts": "Sélectionner les capteurs pour les graphiques",
+                    "select_all": "Tout sélectionner",
+                    "reset_selections": "Réinitialiser les sélections",
+                    "apply_changes": "Appliquer les modifications",
+                    "min": "Min",
+                    "max": "Max",
+                    "avg": "Moy",
+                    "n_a": "N/A",
+                    "sensor_data_chart": "Graphique des données de capteur",
+                    "alert_severity": "Sévérité de l'alerte",
+                    "all": "Tout",
+                    "sort_by": "Trier par",
+                    "latest_first": "Plus récent d'abord",
+                    "oldest_first": "Plus ancien d'abord",
+                    "sensor_type_asc": "Type de capteur (Asc)",
+                    "clear_alert_log": "Effacer l'historique des alertes",
+                    "no_alerts_available": "Aucune alerte disponible.",
+                    "threshold_settings": "Paramètres de seuil",
+                    "level": "Niveau",
+                    "min_value": "Valeur min",
+                    "max_value": "Valeur max",
+                    "save_changes": "Enregistrer les modifications",
+                    "reset_to_defaults": "Réinitialiser aux valeurs par défaut",
+                    "language": "Langue",
+                    "arabic": "العربية",
+                    "english": "English",
+                    "french": "Français",
+                    "fetching_historical_data": "Récupération des données historiques...",
+                    "historical_data_fetched": "Données historiques récupérées avec succès!",
+                    "auto_refresh_enabled": "Actualisation automatique activée.",
+                    "auto_refresh_disabled": "Actualisation automatique désactivée.",
+                    "generating_insights": "Génération de perspicacités...",
+                    "generating": "Génération",
+                    "insights_generated_success": "Perspicacités générées avec succès!",
+                    "no_insights_generated": "Aucune perspicacité n'a pu être générée pour les données actuelles.",
+                    "failed_to_generate_insights": "Échec de la génération de perspicacités.",
+                    "error_generating_insights": "Erreur lors de la génération de perspicacités",
+                    "insights_copied": "Perspicacités copiées dans le presse-papiers!",
+                    "failed_to_copy_insights": "Échec de la copie des perspicacités.",
+                    "no_data_to_export": "Aucune donnée à exporter.",
+                    "data_exported_csv": "Données exportées en CSV!",
+                    "exporting_pdf": "Exportation en PDF...",
+                    "data_exported_pdf": "Données exportées en PDF!",
+                    "thresholds_loaded": "Seuils d'alerte chargés.",
+                    "thresholds_saved_success": "Seuils d'alerte enregistrés avec succès!",
+                    "thresholds_reset": "Seuils d'alerte réinitialisés aux valeurs par défaut!",
+                    "alert": "Alerte",
+                    "value_is": "la valeur est",
+                    "status_is": "le statut est",
+                    "confirm_clear_alerts": "Êtes-vous sûr de vouloir effacer toutes les alertات؟",
+                    "alerts_cleared": "Alertes effacées avec succès!",
+                    "unknown": "Inconnu",
+                    "insight_prompt_base": "Analysez les données de capteur التالية وقدم ملخصًا موجزًا للحالة الحالية، مع تسليط الضوء على أي شذوذ أو اتجاهات مهمة : ",
+                    "language_changed_to": "Langue changée en",
+                    "acceleration_x": "Accélération X",
+                    "acceleration_y": "Accélération Y",
+                    "acceleration_z": "Accélération Z",
+                    "gyro_x": "Gyro X",
+                    "gyro_y": "Gyro Y",
+                    "gyro_z": "Gyro Z",
+                    "latest_full_data_record": "Dernier enregistrement de données complet",
+                    "acceleration_data": "Données d'accélération",
+                    "gyroscope_data": "Données de gyroscope",
+                    "message": "Message"
+                }
+            };
+            return allTranslations[lang] || allTranslations['en']; // العودة إلى الإنجليزية كحل احتياطي
+        }
 
-      await fetch(API_URL, {
-        method: "POST",
-        body: new URLSearchParams({
-          action: "addTask",
-          date,
-          technicien,
-          task
-        }),
-      });
-      alert("✅ Tâche ajoutée !");
-    }
+        /**
+         * يطبق الترجمات على عناصر DOM.
+         */
+        function applyTranslations() {
+            if (Object.keys(translations).length === 0) return;
 
-    async function addUser() {
-      const username = document.getElementById("newUsername").value;
-      const password = document.getElementById("newPassword").value;
-      const role = document.getElementById("newRole").value;
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (translations[key]) {
+                    element.textContent = translations[key];
+                }
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+                const key = element.getAttribute('data-i18n-placeholder');
+                if (translations[key]) {
+                    element.placeholder = translations[key];
+                }
+            });
+            document.querySelectorAll('[data-i18n-title]').forEach(element => {
+                const key = element.getAttribute('data-i18n-title');
+                if (translations[key]) {
+                    element.title = translations[key];
+                }
+            });
 
-      await fetch(API_URL, {
-        method: "POST",
-        body: new URLSearchParams({
-          action: "addUser",
-          username,
-          password,
-          role
-        }),
-      });
-      alert("👤 Utilisateur ajouté !");
-    }
+            // تحديث اتجاه النص للغة العربية
+            document.documentElement.dir = (currentLanguage === 'ar') ? 'rtl' : 'ltr';
+            document.body.style.fontFamily = 'Inter, sans-serif'; // التأكد من الخط
+        }
 
-    async function getTasks() {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        body: new URLSearchParams({ action: "getTasks", technicien: currentUser }),
-      });
-      const data = await res.json();
+        /**
+         * يغير اللغة ويحدث واجهة المستخدم.
+         * @param {string} lang - اللغة الجديدة.
+         */
+        async function changeLanguage(lang) {
+            currentLanguage = lang;
+            translations = getTranslations(lang); // استخدام الدالة المحدثة
+            applyTranslations();
+            // قد تحتاج إلى إعادة رسم الرسوم البيانية أو تحديث الجداول بعد تغيير اللغة
+            updateDashboardCards();
+            updateAccelGyroCards();
+            displayLatestFullData(); // تحديث عرض أحدث بيانات كاملة
+            renderFullTable(currentFullTableData); // أعد عرض الجدول باللغة الجديدة
+            renderChart(); // أعد رسم المخطط باللغة الجديدة
+            renderAlertLogTable(); // أعد عرض سجل التنبيهات
+            showNotification(translations['language_changed_to'] + (lang === 'ar' ? ' العربية' : lang === 'en' ? ' الإنجليزية' : ' الفرنسية'), "success");
+        }
 
-      const list = document.getElementById("taskList");
-      list.innerHTML = "";
 
-      data.tasks.forEach((task) => {
-        const li = document.createElement("li");
-        li.className = "border p-2 flex justify-between items-center";
-        li.innerHTML = `
-          <span>${task.date} - ${task.task} (${task.status})</span>
-          ${task.status !== "Complétée" ? `<button onclick="completeTask('${task.date}','${task.task}')" class="bg-blue-500 text-white px-2 py-1 rounded">✅ Terminer</button>` : ""}
-        `;
-        list.appendChild(li);
-      });
-    }
+        // --- منطق الشريط الجانبي (Sidebar) ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('main-content');
+            const sidebarToggleButton = document.getElementById('sidebar-toggle');
 
-    async function completeTask(date, task) {
-      await fetch(API_URL, {
-        method: "POST",
-        body: new URLSearchParams({
-          action: "completeTask",
-          date,
-          technicien: currentUser,
-          task
-        }),
-      });
-      alert("🎉 Tâche complétée !");
-      getTasks();
-    }
-  </script>
+            sidebar.classList.toggle('-translate-x-full');
+            sidebar.classList.toggle('translate-x-0');
+
+            // تعديل الهامش الأيسر للمحتوى الرئيسي على الشاشات الكبيرة
+            if (window.innerWidth >= 768) { // md breakpoint in Tailwind
+                mainContent.classList.toggle('md:ml-64');
+            }
+
+            // تبديل أيقونة زر التبديل
+            if (sidebar.classList.contains('translate-x-0')) {
+                sidebarToggleButton.innerHTML = '<i class="fas fa-times"></i>'; // أيقونة إغلاق
+            } else {
+                sidebarToggleButton.innerHTML = '<i class="fas fa-bars"></i>'; // أيقونة قائمة
+            }
+        }
+
+        // إغلاق الشريط الجانبي إذا تم النقر خارج الشريط الجانبي على الجوال
+        document.addEventListener('click', (event) => {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggleButton = document.getElementById('sidebar-toggle');
+            if (window.innerWidth < 768 && !sidebar.contains(event.target) && !sidebarToggleButton.contains(event.target) && sidebar.classList.contains('translate-x-0')) {
+                toggleSidebar();
+            }
+        });
+
+        // --- التبديل بين الأقسام (Pages) ---
+        function showSection(sectionId) {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+
+            // إذا كان القسم هو الجدول الكامل، أعد تعيين الصفحة إلى 1
+            if (sectionId === 'full-table-section') {
+                currentPage = 1; // إعادة تعيين الصفحة إلى الأولى
+                displayCurrentPageTable(); // عرض الصفحة الأولى من الجدول
+            }
+
+            // إغلاق الشريط الجانبي على الأجهزة المحمولة بعد تحديد القسم
+            if (window.innerWidth < 768) {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar.classList.contains('translate-x-0')) {
+                    toggleSidebar();
+                }
+            }
+        }
+
+        // --- تحديث البيانات في الوقت الفعلي (Dashboard) ---
+        let latestSensorData = {}; // تخزين أحدث بيانات المستشعر
+
+        // تم إزالة fetchSensorDataRealtime() لأننا سنعتمد على البيانات التاريخية لملء البطاقات
+
+
+        /**
+         * تحديث بطاقات لوحة التحكم الرئيسية بأحدث البيانات.
+         */
+        function updateDashboardCards() {
+            const sensorIds = {
+                'Température (°C)': { id: 'temp-value', unit: '°C', key: 'temperature' },
+                'Humidité (%)': { id: 'humidity-value', unit: '%', key: 'humidity' },
+                'Vibration': { id: 'vibration-value', unit: 'G', key: 'vibration' },
+                'Temp. NTC (°C)': { id: 'ntc-temp-value', unit: '°C', key: 'ntc_temp' },
+                'Courant (V Bruts)': { id: 'current-value', unit: 'A', key: 'current' },
+                'Batterie (V)': { id: 'battery-value', unit: 'V', key: 'battery_voltage' }
+            };
+
+            for (const sheetColumn in sensorIds) {
+                const dataKey = sensorIds[sheetColumn].key;
+                if (latestSensorData[dataKey]) {
+                    const valueElement = document.getElementById(sensorIds[sheetColumn].id);
+                    if (valueElement) {
+                        valueElement.textContent = `${latestSensorData[dataKey].value.toFixed(2)} ${sensorIds[sheetColumn].unit}`;
+                    }
+                } else {
+                    // Set to default if data is not available
+                    const valueElement = document.getElementById(sensorIds[sheetColumn].id);
+                    if (valueElement) {
+                        valueElement.textContent = `-- ${sensorIds[sheetColumn].unit}`;
+                    }
+                }
+            }
+        }
+
+        /**
+         * تحديث بطاقات التسارع والجيروسكوب.
+         */
+        function updateAccelGyroCards() {
+            const accelGyroMapping = {
+                'Accélération X': { id: 'accel-x-value', statusId: 'accel-x-status', unit: 'G', key: 'acceleration_x' },
+                'Accélération Y': { id: 'accel-y-value', statusId: 'accel-y-status', unit: 'G', key: 'acceleration_y' },
+                'Accélération Z': { id: 'accel-z-value', statusId: 'accel-z-status', unit: 'G', key: 'acceleration_z' },
+                'Gyroscope X': { id: 'gyro-x-value', statusId: 'gyro-x-status', unit: 'deg/s', key: 'gyro_x' },
+                'Gyroscope Y': { id: 'gyro-y-value', statusId: 'gyro-y-status', unit: 'deg/s', key: 'gyro_y' },
+                'Gyroscope Z': { id: 'gyro-z-value', statusId: 'gyro-z-status', unit: 'deg/s', key: 'gyro_z' }
+            };
+
+            for (const sheetColumn in accelGyroMapping) {
+                const dataKey = accelGyroMapping[sheetColumn].key;
+                if (latestSensorData[dataKey]) {
+                    const valueElement = document.getElementById(accelGyroMapping[sheetColumn].id);
+                    const statusElement = document.getElementById(accelGyroMapping[sheetColumn].statusId);
+                    if (valueElement) {
+                        valueElement.textContent = `${latestSensorData[dataKey].value.toFixed(2)} ${accelGyroMapping[sheetColumn].unit}`;
+                        const status = getSensorStatus(dataKey, latestSensorData[dataKey].value);
+                        statusElement.textContent = translations[status] || status; // ترجمة الحالة
+                        statusElement.className = `font-semibold ${getStatusColorClass(status)}`;
+                    }
+                } else {
+                    // Set to default if data is not available
+                    const valueElement = document.getElementById(accelGyroMapping[sheetColumn].id);
+                    const statusElement = document.getElementById(accelGyroMapping[sheetColumn].statusId);
+                    if (valueElement) {
+                        valueElement.textContent = `-- ${accelGyroMapping[sheetColumn].unit}`;
+                        statusElement.textContent = translations['normal']; // Default status
+                        statusElement.className = `font-semibold ${getStatusColorClass('normal')}`;
+                    }
+                }
+            }
+        }
+
+        // Mapping for sensor types to their units for chart Y-axis labeling
+        const sensorUnitsMapping = {
+            "Température (°C)": "°C",
+            "Humidité (%)": "%",
+            "Vibration": "G",
+            "Temp. NTC (°C)": "°C",
+            "Courant (V Bruts)": "A",
+            "Batterie (V)": "V",
+            "Accélération X": "G",
+            "Accélération Y": "G",
+            "Accélération Z": "G",
+            "Gyroscope X": "deg/s",
+            "Gyroscope Y": "deg/s",
+            "Gyroscope Z": "deg/s"
+        };
+
+
+        // --- جلب البيانات التاريخية (Full Table & Charts) ---
+        let currentFullTableData = []; // تخزين جميع البيانات التاريخية
+
+        async function fetchHistoricalSensorData() {
+            showNotification(translations['fetching_historical_data'], "info");
+            const loadingOverlay = document.getElementById('loading-overlay'); // Changed to loadingOverlay
+            loadingOverlay.classList.remove('hidden'); // إظهار مؤشر التحميل
+
+            try {
+                const response = await fetch(GOOGLE_SHEETS_API_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const rawData = await response.json();
+
+                currentFullTableData = rawData.flatMap(row => {
+                    // Combine Date and Heure to create a proper timestamp
+                    const datePart = row["Date"] ? new Date(row["Date"]) : null;
+                    // Heure from the sheet is 1899-12-30THH:MM:SS.000Z, so extract only the time part
+                    const timePartStr = row["Heure"] ? new Date(row["Heure"]).toTimeString().split(' ')[0] : null;
+
+                    let timestamp = null;
+                    if (datePart && timePartStr) {
+                        // Construct ISO string with date from "Date" and time from "Heure"
+                        const combinedDateTimeString = `${datePart.toISOString().split('T')[0]}T${timePartStr}`;
+                        timestamp = new Date(combinedDateTimeString);
+                    } else if (datePart) {
+                        timestamp = datePart; // Fallback to just date if time is missing
+                    }
+
+                    // Create a single record for the row with all original fields
+                    const record = {
+                        timestamp: timestamp,
+                        "Date": row["Date"],
+                        "Heure": row["Heure"],
+                        "Température (°C)": parseFloat(row["Température (°C)"]),
+                        "Humidité (%)": parseFloat(row["Humidité (%)"]),
+                        "Accélération X": parseFloat(row["Accélération X"]),
+                        "Accélération Y": parseFloat(row["Accélération Y"]),
+                        "Accélération Z": parseFloat(row["Accélération Z"]),
+                        "Gyroscope X": parseFloat(row["Gyroscope X"]),
+                        "Gyroscope Y": parseFloat(row["Gyroscope Y"]),
+                        "Gyroscope Z": parseFloat(row["Gyroscope Z"]),
+                        "Vibration": parseFloat(row["Vibration"]),
+                        "Temp. NTC (°C)": parseFloat(row["Temp. NTC (°C)"]),
+                        "Courant (V Bruts)": parseFloat(row["Courant (V Bruts)"]),
+                        "Batterie (V)": parseFloat(row["Batterie (V)"]),
+                        deviceId: row["Device ID"] || "unknown" // Assuming a "Device ID" column or fallback
+                    };
+                    return record;
+                }).filter(record => record.timestamp instanceof Date && !isNaN(record.timestamp)); // Filter out invalid date records
+                
+                // Sort by timestamp, newest first
+                currentFullTableData.sort((a, b) => b.timestamp - a.timestamp);
+
+                // Update latestSensorData from the first (latest) record
+                if (currentFullTableData.length > 0) {
+                    const latestRecord = currentFullTableData[0];
+                    latestSensorData = {
+                        temperature: { value: latestRecord["Température (°C)"] },
+                        humidity: { value: latestRecord["Humidité (%)"] },
+                        vibration: { value: latestRecord["Vibration"] },
+                        ntc_temp: { value: latestRecord["Temp. NTC (°C)"] },
+                        current: { value: latestRecord["Courant (V Bruts)"] },
+                        battery_voltage: { value: latestRecord["Batterie (V)"] },
+                        acceleration_x: { value: latestRecord["Accélération X"] },
+                        acceleration_y: { value: latestRecord["Accélération Y"] },
+                        acceleration_z: { value: latestRecord["Accélération Z"] },
+                        gyro_x: { value: latestRecord["Gyroscope X"] },
+                        gyro_y: { value: latestRecord["Gyroscope Y"] },
+                        gyro_z: { value: latestRecord["Gyroscope Z"] }
+                    };
+                    // Check for alerts with the latest data
+                    checkAlerts(latestRecord);
+                }
+
+                updateDashboardCards();
+                updateAccelGyroCards();
+                renderFullTable(currentFullTableData);
+                displayLatestFullData(); // Call to display the latest full data
+                populateSensorSelect(); // ملء قائمة المستشعرات للاختيار
+                showNotification(translations['historical_data_fetched'], "success");
+            } catch (error) {
+                console.error("خطأ في جلب البيانات التاريخية ومعالجتها:", error);
+                showNotification(`خطأ في البيانات التاريخية: ${error.message}`, "error");
+            } finally {
+                loadingOverlay.classList.add('hidden'); // إخفاء مؤشر التحميل
+            }
+        }
+
+        /**
+         * يعرض أحدث سجل بيانات كامل من الجدول في قسم خاص.
+         */
+        function displayLatestFullData() {
+            const latestDataContainer = document.getElementById('latest-full-data-content');
+            latestDataContainer.innerHTML = ''; // مسح المحتوى الحالي
+
+            if (currentFullTableData.length === 0) {
+                latestDataContainer.innerHTML = `<p class="text-gray-400">${translations['no_data_available']}</p>`;
+                return;
+            }
+
+            const latestRecord = currentFullTableData[0];
+            const dataFields = [
+                { key: "Date", label: "Date" },
+                { key: "Heure", label: "Heure" },
+                { key: "Température (°C)", label: translations['temperature'] + ' (°C)' },
+                { key: "Humidité (%)", label: translations['humidity'] + ' (%)' },
+                { key: "Accélération X", label: translations['acceleration_x'] },
+                { key: "Accélération Y", label: translations['acceleration_y'] },
+                { key: "Accélération Z", label: translations['acceleration_z'] },
+                { key: "Gyroscope X", label: translations['gyro_x'] },
+                { key: "Gyroscope Y", label: translations['gyro_y'] },
+                { key: "Gyroscope Z", label: translations['gyro_z'] },
+                { key: "Vibration", label: translations['vibration'] },
+                { key: "Temp. NTC (°C)", label: translations['ntc_temp'] + ' (°C)' },
+                { key: "Courant (V Bruts)", label: translations['current'] + ' (V Bruts)' },
+                { key: "Batterie (V)", label: translations['battery_voltage'] + ' (V)' },
+                { key: "deviceId", label: translations['device_id'] }
+            ];
+
+            let htmlContent = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">';
+            dataFields.forEach(field => {
+                let value = latestRecord[field.key];
+                if (field.key === "Date" && value) {
+                    value = new Date(value).toLocaleDateString(currentLanguage);
+                } else if (field.key === "Heure" && value) {
+                    value = new Date(value).toLocaleTimeString(currentLanguage);
+                } else if (typeof value === 'number' && !isNaN(value)) {
+                    value = value.toFixed(2);
+                } else if (value === undefined || value === null || (typeof value === 'number' && isNaN(value))) {
+                    value = translations['n_a'];
+                }
+
+                htmlContent += `
+                    <div class="flex justify-between items-center bg-gray-700 p-3 rounded-md border border-gray-600">
+                        <span class="text-gray-400 font-medium">${field.label}:</span>
+                        <span class="text-white font-semibold">${value}</span>
+                    </div>
+                `;
+            });
+            htmlContent += '</div>';
+            latestDataContainer.innerHTML = htmlContent;
+        }
+
+
+        // --- التحديث التلقائي ---
+        function toggleAutoRefresh(enable) {
+            const autoRefreshBtn = document.getElementById('auto-refresh-btn');
+            if (enable) {
+                if (!autoRefreshInterval) { // فقط إذا لم يكن نشطًا بالفعل
+                    autoRefreshInterval = setInterval(async () => {
+                        console.log("تحديث تلقائي للبيانات التاريخية...");
+                        await fetchHistoricalSensorData();
+                    }, 15000); // كل 15 ثانية
+                    autoRefreshBtn.innerHTML = `<i class="fas fa-pause"></i> ${translations['disable_auto_refresh']}`;
+                    autoRefreshBtn.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+                    autoRefreshBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    showNotification(translations['auto_refresh_enabled'], "success");
+                }
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                    autoRefreshBtn.innerHTML = `<i class="fas fa-play"></i> ${translations['enable_auto_refresh']}`;
+                    autoRefreshBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    autoRefreshBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+                    showNotification(translations['auto_refresh_disabled'], "warning");
+                }
+            }
+        }
+
+        // --- توليد الرؤى باستخدام Gemini API ---
+        async function generateInsight() {
+            showNotification(translations['generating_insights'], "info");
+            const insightOutput = document.getElementById('insight-output');
+            insightOutput.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${translations['generating']}...`;
+            const insightCopyBtn = document.getElementById('insight-copy-btn');
+            insightCopyBtn.classList.add('hidden'); // إخفاء زر النسخ أثناء التوليد
+
+            let prompt = translations['insight_prompt_base'];
+            let sensorSummary = [];
+            // Use the latest full data record for insight generation
+            if (currentFullTableData.length > 0) {
+                const latestRecord = currentFullTableData[0];
+                for (const key in latestRecord) {
+                    // Exclude timestamp, Date, Heure, and deviceId from direct summary if they are not sensor values
+                    if (key !== "timestamp" && key !== "Date" && key !== "Heure" && key !== "deviceId" && !isNaN(latestRecord[key])) {
+                        sensorSummary.push(`${translations[key] || key}: ${latestRecord[key].toFixed(2)}`);
+                    }
+                }
+            }
+            prompt += sensorSummary.join(', ') + ".";
+
+
+            try {
+                // استدعاء Gemini API
+                const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const response = await fetch(GEMINI_API_URL + apiKey, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`خطأ في واجهة برمجة تطبيقات Gemini: ${errorData.error.message || response.statusText}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    insightOutput.textContent = text;
+                    insightCopyBtn.classList.remove('hidden'); // إظهار زر النسخ
+                    showNotification(translations['insights_generated_success'], "success");
+                } else {
+                    insightOutput.textContent = translations['no_insights_generated'];
+                    showNotification(translations['failed_to_generate_insights'], "warning");
+                }
+            } catch (error) {
+                console.error("خطأ في توليد الرؤى:", error);
+                insightOutput.textContent = `${translations['error_generating_insights']}: ${error.message}`;
+                showNotification(`خطأ في الرؤى: ${error.message}`, "error");
+            }
+        }
+
+        // نسخ الرؤى إلى الحافظة
+        function copyInsight() {
+            const insightOutput = document.getElementById('insight-output');
+            const textToCopy = insightOutput.textContent;
+            try {
+                // استخدام document.execCommand('copy') لضمان التوافق داخل iFrame
+                const textarea = document.createElement('textarea');
+                textarea.value = textToCopy;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showNotification(translations['insights_copied'], "success");
+            } catch (err) {
+                console.error('فشل في نسخ النص:', err);
+                showNotification(translations['failed_to_copy_insights'], "error");
+            }
+        }
+
+        // --- منطق الجدول الكامل مع التصفية والترحيل ---
+        const rowsPerPage = 10;
+        let currentPage = 1;
+        let filteredTableData = [];
+
+        /**
+         * يعرض بيانات المستشعر في الجدول.
+         * @param {Array<Object>} data - البيانات المراد عرضها.
+         */
+        function renderFullTable(data) {
+            filteredTableData = data; // تحديث البيانات المفلترة لتطبيق الترحيل عليها
+            currentPage = 1; // إعادة تعيين الصفحة إلى الأولى عند تغيير البيانات
+
+            applyTableFilters(); // تطبيق الفلاتر قبل الترحيل
+        }
+
+        /**
+         * تطبيق الفلاتر على البيانات وعرض الجدول.
+         */
+        function applyTableFilters() {
+            let tempFilteredData = [...currentFullTableData];
+
+            const startDateInput = document.getElementById('filter-start-date').value;
+            const startTimeInput = document.getElementById('filter-start-time').value;
+            const endDateInput = document.getElementById('filter-end-date').value;
+            const endTimeInput = document.getElementById('filter-end-time').value;
+            const sensorTypeFilter = document.getElementById('filter-sensor-type').value;
+            const searchInput = document.getElementById('search-table').value.toLowerCase();
+
+            // تصفية حسب التاريخ والوقت
+            if (startDateInput && startTimeInput) {
+                const startDateTime = new Date(`${startDateInput}T${startTimeInput}`);
+                tempFilteredData = tempFilteredData.filter(d => d.timestamp >= startDateTime);
+            }
+            if (endDateInput && endTimeInput) {
+                const endDateTime = new Date(`${endDateInput}T${endTimeInput}`);
+                tempFilteredData = tempFilteredData.filter(d => d.timestamp <= endDateTime);
+            }
+
+            // تصفية حسب نوع المستشعر (إذا كنت لا تزال ترغب في هذا النوع من التصفية)
+            // ملاحظة: مع هيكل البيانات الجديد، تحتاج إلى تعديل هذا إذا كنت تريد التصفية بناءً على أنواع مستشعرات فردية
+            // For now, it's commented out as per the new table structure.
+            /*
+            if (sensorTypeFilter && sensorTypeFilter !== 'all') {
+                tempFilteredData = tempFilteredData.filter(d => d.sensorType === sensorTypeFilter);
+            }
+            */
+
+            // تصفية حسب البحث في النص
+            if (searchInput) {
+                tempFilteredData = tempFilteredData.filter(d =>
+                    Object.values(d).some(val =>
+                        String(val).toLowerCase().includes(searchInput)
+                    )
+                );
+            }
+
+            filteredTableData = tempFilteredData;
+            updatePaginationControls();
+            displayCurrentPageTable();
+        }
+
+        /**
+         * تصفية سريعة حسب النطاقات الزمنية.
+         * @param {string} range - النطاق الزمني (e.g., '1h', '24h', '7d', '30d').
+         */
+        function quickFilter(range) {
+            const now = new Date();
+            let startDate = new Date();
+            let endDate = now;
+
+            switch (range) {
+                case '1h':
+                    startDate.setHours(now.getHours() - 1);
+                    break;
+                case '24h':
+                    startDate.setDate(now.getDate() - 1);
+                    break;
+                case '7d':
+                    startDate.setDate(now.getDate() - 7);
+                    break;
+                case '30d':
+                    startDate.setDate(now.getDate() - 30);
+                    break;
+                case 'all':
+                default:
+                    startDate = new Date(0); // بداية الوقت
+                    endDate = now;
+                    break;
+            }
+
+            document.getElementById('filter-start-date').value = startDate.toISOString().split('T')[0];
+            document.getElementById('filter-start-time').value = startDate.toTimeString().split(' ')[0].substring(0, 5);
+            document.getElementById('filter-end-date').value = endDate.toISOString().split('T')[0];
+            document.getElementById('filter-end-time').value = endDate.toTimeString().split(' ')[0].substring(0, 5);
+
+            applyTableFilters();
+        }
+
+
+        /**
+         * يعرض صفحة معينة من الجدول.
+         */
+        function displayCurrentPageTable() {
+            const tableBody = document.getElementById('sensor-table-body');
+            tableBody.innerHTML = ''; // مسح المحتوى الحالي
+
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = startIndex + rowsPerPage;
+            const paginatedData = filteredTableData.slice(startIndex, endIndex);
+
+            if (paginatedData.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="12" class="px-6 py-4 text-center text-gray-500">${translations['no_data_available']}</td></tr>`;
+                return;
+            }
+
+            paginatedData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'bg-white border-b hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700';
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${row["Date"] ? new Date(row["Date"]).toLocaleDateString(currentLanguage) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${row["Heure"] ? new Date(row["Heure"]).toLocaleTimeString(currentLanguage) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Température (°C)"]) ? row["Température (°C)"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Humidité (%)"]) ? row["Humidité (%)"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Accélération X"]) ? row["Accélération X"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Accélération Y"]) ? row["Accélération Y"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Accélération Z"]) ? row["Accélération Z"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Gyroscope X"]) ? row["Gyroscope X"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Gyroscope Y"]) ? row["Gyroscope Y"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Gyroscope Z"]) ? row["Gyroscope Z"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Vibration"]) ? row["Vibration"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Temp. NTC (°C)"]) ? row["Temp. NTC (°C)"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Courant (V Bruts)"]) ? row["Courant (V Bruts)"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${!isNaN(row["Batterie (V)"]) ? row["Batterie (V)"].toFixed(2) : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${row.deviceId || translations['unknown']}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            updatePaginationControls();
+        }
+
+        /**
+         * تحديث أزرار التحكم في الترحيل.
+         */
+        function updatePaginationControls() {
+            const totalPages = Math.ceil(filteredTableData.length / rowsPerPage);
+            document.getElementById('page-info').textContent = `${translations['page']} ${currentPage} ${translations['of']} ${totalPages}`;
+            document.getElementById('prev-page-btn').disabled = currentPage === 1;
+            document.getElementById('next-page-btn').disabled = currentPage === totalPages || totalPages === 0;
+        }
+
+        function nextPage() {
+            const totalPages = Math.ceil(filteredTableData.length / rowsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayCurrentPageTable();
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                displayCurrentPageTable();
+            }
+        }
+
+        /**
+         * تصدير بيانات الجدول المفلترة إلى CSV.
+         */
+        function exportToCSV() {
+            if (filteredTableData.length === 0) {
+                showNotification(translations['no_data_to_export'], "warning");
+                return;
+            }
+
+            // Define headers that match the table
+            const headers = [
+                "Date", "Heure", "Température (°C)", "Humidité (%)", "Accélération X",
+                "Accélération Y", "Accélération Z", "Gyroscope X", "Gyroscope Y",
+                "Gyroscope Z", "Vibration", "Temp. NTC (°C)", "Courant (V Bruts)", "Batterie (V)",
+                "Device ID"
+            ];
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Add UTF-8 BOM for Arabic support
+            csvContent += headers.map(header => `"${header}"`).join(',') + '\n';
+
+            filteredTableData.forEach(row => {
+                let rowData = [
+                    `"${row["Date"] ? new Date(row["Date"]).toLocaleDateString(currentLanguage) : 'N/A'}"`,
+                    `"${row["Heure"] ? new Date(row["Heure"]).toLocaleTimeString(currentLanguage) : 'N/A'}"`,
+                    `"${!isNaN(row["Température (°C)"]) ? row["Température (°C)"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Humidité (%)"]) ? row["Humidité (%)"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Accélération X"]) ? row["Accélération X"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Accélération Y"]) ? row["Accélération Y"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Accélération Z"]) ? row["Accélération Z"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Gyroscope X"]) ? row["Gyroscope X"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Gyroscope Y"]) ? row["Gyroscope Y"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Gyroscope Z"]) ? row["Gyroscope Z"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Vibration"]) ? row["Vibration"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Temp. NTC (°C)"]) ? row["Temp. NTC (°C)"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Courant (V Bruts)"]) ? row["Courant (V Bruts)"].toFixed(2) : 'N/A'}"`,
+                    `"${!isNaN(row["Batterie (V)"]) ? row["Batterie (V)"].toFixed(2) : 'N/A'}"`,
+                    `"${row.deviceId || translations['unknown']}"`
+                ];
+                csvContent += rowData.join(',') + '\n';
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', 'sensor_data.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showNotification(translations['data_exported_csv'], "success");
+        }
+
+        /**
+         * تصدير محتوى الجدول المفلتر إلى PDF.
+         */
+        async function exportToPDF() {
+            if (filteredTableData.length === 0) {
+                showNotification(translations['no_data_to_export'], "warning");
+                return;
+            }
+
+            showNotification(translations['exporting_pdf'], "info");
+            const loadingOverlay = document.getElementById('loading-overlay');
+            loadingOverlay.classList.remove('hidden'); // Show loading overlay
+
+            const input = document.getElementById('full-table-container'); // العنصر الذي تريد تصديره
+            // التأكد من أن جميع البيانات مرئية قبل التقاط الصورة إذا كان الجدول مخفياً بالترحيل
+            // هذا سيتطلب إما إظهار جميع البيانات مؤقتًا أو بناء الجدول يدويًا
+            const originalRowsPerPage = rowsPerPage;
+            const originalCurrentPage = currentPage;
+            rowsPerPage = filteredTableData.length; // عرض جميع الصفوف مؤقتاً
+            currentPage = 1;
+            displayCurrentPageTable(); // إعادة رسم الجدول مع جميع الصفوف
+
+            try {
+                // استخدام html2canvas لالتقاط المحتوى كصورة
+                const canvas = await html2canvas(input, { scale: 2, useCORS: true }); // زيادة الدقة
+                const imgData = canvas.toDataURL('image/png');
+
+                // استخدام jsPDF لإنشاء مستند PDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4'); // 'p' for portrait, 'mm' for millimeters, 'a4' for A4 size
+
+                const imgWidth = 210; // A4 width in mm
+                const pageHeight = 297; // A4 height in mm
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                pdf.save('sensor_data.pdf');
+                showNotification(translations['data_exported_pdf'], "success");
+            } catch (error) {
+                console.error("خطأ في تصدير PDF:", error);
+                showNotification(`خطأ في تصدير PDF: ${error.message}`, "error");
+            } finally {
+                // إعادة الإعدادات الأصلية للترحيل
+                rowsPerPage = originalRowsPerPage;
+                currentPage = originalCurrentPage;
+                displayCurrentPageTable();
+                loadingOverlay.classList.add('hidden'); // Hide loading overlay
+            }
+        }
+
+        /**
+         * ملء قائمة المستشعرات المنسدلة في فلاتر الجدول والرسوم البيانية.
+         */
+        function populateSensorSelect() {
+            // الآن البيانات التاريخية تحتوي على جميع الأعمدة كخصائص مباشرة
+            // نحتاج إلى جمع أنواع المستشعرات الفريدة من خلال map
+            const sensorTypes = new Set();
+            // هذا الجزء يحتاج إلى إعادة تقييم إذا كنت تريد عرض أنواع المستشعرات الفردية
+            // من البيانات التاريخية التي هي الآن كجدول واحد
+            // على سبيل المثال، إذا كان كل عمود "sensorType"
+            // For now, it will list all original column headers as potential "sensor types" for filtering.
+            // This might not be what's desired if "sensorType" was meant to be a single consolidated field.
+            const columnHeaders = [
+                "Température (°C)", "Humidité (%)", "Accélération X", "Accélération Y",
+                "Accélération Z", "Gyroscope X", "Gyroscope Y", "Gyroscope Z",
+                "Vibration", "Temp. NTC (°C)", "Courant (V Bruts)", "Batterie (V)"
+            ];
+            columnHeaders.forEach(header => sensorTypes.add(header));
+
+
+            const filterSelect = document.getElementById('filter-sensor-type');
+            filterSelect.innerHTML = `<option value="all">${translations['all_sensor_types']}</option>`;
+            sensorTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = translations[type] || type; // استخدم الترجمة إذا كانت متاحة
+                filterSelect.appendChild(option);
+            });
+
+            // ملء قائمة اختيار المستشعرات للرسوم البيانية
+            const chartSensorSelect = document.getElementById('chart-sensor-select');
+            chartSensorSelect.innerHTML = ''; // مسح الخيارات القديمة
+            sensorTypes.forEach(type => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center';
+                div.innerHTML = `
+                    <input id="chart-sensor-${type.replace(/[^a-zA-Z0-9]/g, '')}" type="checkbox" value="${type}" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="chart-sensor-${type.replace(/[^a-zA-Z0-9]/g, '')}" class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">${translations[type] || type}</label>
+                `;
+                chartSensorSelect.appendChild(div);
+            });
+        }
+
+
+        // --- منطق الرسوم البيانية ---
+        let sensorChart;
+        let selectedChartSensors = [];
+
+        /**
+         * يهيئ الرسم البياني الأول.
+         */
+        function initChart() {
+            const ctx = document.getElementById('sensorChart').getContext('2d');
+            // تدمير الرسم البياني الموجود قبل إنشاء واحد جديد
+            if (sensorChart) {
+                sensorChart.destroy();
+            }
+            sensorChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: translations['sensor_data_chart'],
+                            color: 'white'
+                        },
+                        tooltip: {
+                            rtl: currentLanguage === 'ar', // دعم RTL للأدوات المنبثقة
+                        },
+                        legend: {
+                            labels: {
+                                color: 'white'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'hour',
+                                tooltipFormat: 'yyyy-MM-dd HH:mm',
+                                displayFormats: {
+                                    hour: 'HH:mm',
+                                    day: 'MMM dd'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: translations['timestamp'],
+                                color: 'white'
+                            },
+                            ticks: {
+                                color: 'white'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: translations['value'], // Default to "Value"
+                                color: 'white'
+                            },
+                            ticks: {
+                                color: 'white'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * يحدث الرسم البياني بناءً على المستشعرات المحددة والبيانات المفلترة.
+         */
+        function renderChart() {
+            // يجب أن يكون الرسم البياني مهيئًا بالفعل بواسطة initChart()
+            if (!sensorChart) {
+                console.error("خطأ: الرسم البياني غير مهيأ. يرجى تهيئة الرسم البياني أولاً.");
+                showNotification("خطأ: الرسم البياني غير مهيأ.", "error");
+                return;
+            }
+
+            const chartData = filterChartData(); // احصل على البيانات المفلترة للرسم البياني
+
+            sensorChart.data.labels = chartData.labels;
+            sensorChart.data.datasets = [];
+
+            const colors = ['#4299E1', '#8B5CF6', '#F6E05E', '#FC8181', '#48BB78', '#ED8936']; // ألوان للمجموعات
+
+            selectedChartSensors.forEach((sensorHeader, index) => { // Now sensorHeader is like "Température (°C)"
+                const sensorValues = chartData.datasets[sensorHeader];
+                if (sensorValues) {
+                    sensorChart.data.datasets.push({
+                        label: translations[sensorHeader] || sensorHeader, // Use original header or translation
+                        data: sensorValues,
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length] + '40', // 40% شفافية
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointBackgroundColor: colors[index % colors.length],
+                        tension: 0.3,
+                        fill: false
+                    });
+                }
+            });
+
+            // Update Y-axis title based on selected sensors
+            if (selectedChartSensors.length === 1) {
+                const selectedSensor = selectedChartSensors[0];
+                const unit = sensorUnitsMapping[selectedSensor] || '';
+                sensorChart.options.scales.y.title.text = `${translations['value']} (${unit})`;
+            } else {
+                sensorChart.options.scales.y.title.text = translations['value']; // Generic if multiple or none
+            }
+
+
+            // تحديث الإحصائيات
+            updateChartStatistics(chartData.rawValues);
+
+            sensorChart.update();
+        }
+
+        /**
+         * يجمع البيانات للرسم البياني.
+         * @returns {Object} - كائن يحتوي على الملصقات ومجموعات البيانات.
+         */
+        function filterChartData() {
+            const dataForChart = { labels: [], datasets: {}, rawValues: [] };
+            const sensorDataMap = {}; // لجمع البيانات لكل نوع مستشعر
+
+            // استخدام البيانات المفلترة حاليًا من الجدول الكامل
+            filteredTableData.forEach(entry => {
+                // For each selected sensor, push its value from the current row
+                selectedChartSensors.forEach(sensorHeader => {
+                    const value = entry[sensorHeader];
+                    if (value !== undefined && value !== null && !isNaN(value)) {
+                        if (!sensorDataMap[sensorHeader]) {
+                            sensorDataMap[sensorHeader] = [];
+                        }
+                        sensorDataMap[sensorHeader].push({
+                            x: entry.timestamp, // Use the combined timestamp
+                            y: value
+                        });
+                        dataForChart.rawValues.push(value);
+                    }
+                });
+                if (entry.timestamp && !dataForChart.labels.includes(entry.timestamp)) {
+                    dataForChart.labels.push(entry.timestamp);
+                }
+            });
+
+            // فرز البيانات زمنيًا
+            for (const sensorHeader in sensorDataMap) {
+                sensorDataMap[sensorHeader].sort((a, b) => a.x - b.x);
+            }
+
+            // فرز الملصقات
+            dataForChart.labels.sort((a, b) => a - b);
+
+            // ملء مجموعات البيانات بالقيم الصحيحة بناءً على الملصقات
+            for (const sensorHeader in sensorDataMap) {
+                dataForChart.datasets[sensorHeader] = dataForChart.labels.map(label => {
+                    const dataPoint = sensorDataMap[sensorHeader].find(d => d.x === label);
+                    return dataPoint ? dataPoint.y : null; // استخدام null للقيم المفقودة
+                });
+            }
+
+            return dataForChart;
+        }
+
+        /**
+         * تحديث إحصائيات الرسم البياني (الحد الأدنى، الأقصى، المتوسط).
+         * @param {Array<number>} values - القيم الخام للمستشعرات المعروضة.
+         */
+        function updateChartStatistics(values) {
+            const minElement = document.getElementById('chart-stats-min');
+            const maxElement = document.getElementById('chart-stats-max');
+            const avgElement = document.getElementById('chart-stats-avg');
+
+            if (values.length > 0) {
+                const minVal = Math.min(...values).toFixed(2);
+                const maxVal = Math.max(...values).toFixed(2);
+                const avgVal = (values.reduce((sum, val) => sum + val, 0) / values.length).toFixed(2);
+
+                minElement.textContent = `${translations['min']}: ${minVal}`;
+                maxElement.textContent = `${translations['max']}: ${maxVal}`;
+                avgElement.textContent = `${translations['avg']}: ${avgVal}`;
+            } else {
+                minElement.textContent = `${translations['min']}: ${translations['n_a']}`;
+                maxElement.textContent = `${translations['max']}: ${translations['n_a']}`;
+                avgElement.textContent = `${translations['avg']}: ${translations['n_a']}`;
+            }
+        }
+
+
+        /**
+         * يطبق اختيار المستشعرات للرسم البياني.
+         */
+        function applyChartSelections() {
+            selectedChartSensors = [];
+            document.querySelectorAll('#chart-sensor-select input[type="checkbox"]:checked').forEach(checkbox => {
+                selectedChartSensors.push(checkbox.value);
+            });
+            renderChart();
+        }
+
+        /**
+         * يحدد جميع المستشعرات للرسم البياني.
+         */
+        function selectAllChartSensors() {
+            document.querySelectorAll('#chart-sensor-select input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            applyChartSelections();
+        }
+
+        /**
+         * يعيد تعيين تحديدات المستشعرات للرسم البياني.
+         */
+        function resetChartSelections() {
+            document.querySelectorAll('#chart-sensor-select input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            selectedChartSensors = [];
+            renderChart();
+        }
+
+
+        // --- نظام التنبيهات (Alerts) ---
+        // Note: Thresholds now apply to the internal sensor types, not the raw column headers.
+        // You might need a separate mapping or dynamic threshold generation if you want to set thresholds
+        // directly on the raw column headers from Google Sheets.
+        let alertThresholds = {
+            temperature: { normal: { min: 20, max: 30 }, warning: { min: 15, max: 35 }, critical: { min: 10, max: 40 } },
+            humidity: { normal: { min: 40, max: 60 }, warning: { min: 30, max: 70 }, critical: { min: 20, max: 80 } },
+            vibration: { normal: { min: 0, max: 0.5 }, warning: { min: 0.5, max: 1.0 }, critical: { min: 1.0, max: 999 } },
+            ntc_temp: { normal: { min: 20, max: 30 }, warning: { min: 15, max: 35 }, critical: { min: 10, max: 40 } },
+            current: { normal: { min: 0, max: 1.0 }, warning: { min: 1.0, max: 2.0 }, critical: { min: 2.0, max: 999 } },
+            battery_voltage: { normal: { min: 3.5, max: 4.2 }, warning: { min: 3.0, max: 4.5 }, critical: { min: 2.5, max: 5.0 } },
+            acceleration_x: { normal: { min: -0.2, max: 0.2 }, warning: { min: -0.5, max: 0.5 }, critical: { min: -1.0, max: 1.0 } },
+            acceleration_y: { normal: { min: -0.2, max: 0.2 }, warning: { min: -0.5, max: 0.5 }, critical: { min: -1.0, max: 1.0 } },
+            acceleration_z: { normal: { min: 0.8, max: 1.2 }, warning: { min: 0.5, max: 1.5 }, critical: { min: 0.0, max: 2.0 } },
+            gyro_x: { normal: { min: -5, max: 5 }, warning: { min: -15, max: 15 }, critical: { min: -30, max: 30 } },
+            gyro_y: { normal: { min: -5, max: 5 }, warning: { min: -15, max: 15 }, critical: { min: -30, max: 30 } },
+            gyro_z: { normal: { min: -5, max: 5 }, warning: { min: -15, max: 15 }, critical: { min: -30, max: 30 } }
+        };
+        const defaultAlertThresholds = JSON.parse(JSON.stringify(alertThresholds)); // نسخة احتياطية
+
+        let alertLogData = [];
+
+        /**
+         * يجلب حدود التنبيه المحفوظة من Firebase Firestore.
+         */
+        async function fetchAlertThresholds() {
+            if (!db || !currentUserId) return;
+            const docRef = doc(db, `artifacts/${__app_id}/users/${currentUserId}/settings/alertThresholds`);
+            try {
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    alertThresholds = docSnap.data();
+                    console.log("تم تحميل حدود التنبيه:", alertThresholds);
+                    showNotification(translations['thresholds_loaded'], "info");
+                } else {
+                    console.log("لم يتم العثور على حدود التنبيه المحفوظة، سيتم استخدام الافتراضيات.");
+                }
+                populateThresholdSettings();
+            } catch (error) {
+                console.error("خطأ في جلب حدود التنبيه:", error);
+                showNotification(`خطأ في حدود التنبيه: ${error.message}`, "error");
+            }
+        }
+
+        /**
+         * يحفظ حدود التنبيه الحالية إلى Firebase Firestore.
+         */
+        async function saveAlertThresholds() {
+            if (!db || !currentUserId) return;
+            const docRef = doc(db, `artifacts/${__app_id}/users/${currentUserId}/settings/alertThresholds`);
+            try {
+                // قراءة القيم من واجهة المستخدم وتحديث كائن alertThresholds
+                for (const sensorType in alertThresholds) {
+                    ['normal', 'warning', 'critical'].forEach(level => {
+                        const minInput = document.getElementById(`${sensorType}-${level}-min`);
+                        const maxInput = document.getElementById(`${sensorType}-${level}-max`);
+                        alertThresholds[sensorType][level].min = parseFloat(minInput.value) || 0;
+                        alertThresholds[sensorType][level].max = parseFloat(maxInput.value) || 0;
+                    });
+                }
+                await setDoc(docRef, alertThresholds);
+                console.log("تم حفظ حدود التنبيه بنجاح!");
+                showNotification(translations['thresholds_saved_success'], "success");
+            } catch (error) {
+                console.error("خطأ في حفظ حدود التنبيه:", error);
+                showNotification(`خطأ في حفظ الحدود: ${error.message}`, "error");
+            }
+        }
+
+        /**
+         * يعيد تعيين حدود التنبيه إلى القيم الافتراضية ويحفظها.
+         */
+        async function resetAlertThresholds() {
+            alertThresholds = JSON.parse(JSON.stringify(defaultAlertThresholds));
+            populateThresholdSettings();
+            await saveAlertThresholds(); // حفظ القيم الافتراضية إلى Firestore
+            showNotification(translations['thresholds_reset'], "warning");
+        }
+
+        /**
+         * يملأ حقول إعدادات الحدود بقيمها الحالية.
+         */
+        function populateThresholdSettings() {
+            for (const sensorType in alertThresholds) {
+                ['normal', 'warning', 'critical'].forEach(level => {
+                    const minInput = document.getElementById(`${sensorType}-${level}-min`);
+                    const maxInput = document.getElementById(`${sensorType}-${level}-max`);
+                    if (minInput) minInput.value = alertThresholds[sensorType][level].min;
+                    if (maxInput) maxInput.value = alertThresholds[sensorType][level].max;
+                });
+            }
+        }
+
+
+        /**
+         * تحديد حالة المستشعر بناءً على القيمة والحدود.
+         * @param {string} sensorType - نوع المستشعر.
+         * @param {number} value - القيمة الحالية للمستشعر.
+         * @returns {'normal'|'warning'|'critical'} - حالة المستشعر.
+         */
+        function getSensorStatus(sensorType, value) {
+            const thresholds = alertThresholds[sensorType];
+            if (!thresholds) return 'normal'; // إذا لم تكن هناك حدود، افترض أنها عادية
+
+            if (value < thresholds.critical.min || value > thresholds.critical.max) {
+                return 'critical';
+            } else if (value < thresholds.warning.min || value > thresholds.warning.max) {
+                return 'warning';
+            } else {
+                return 'normal';
+            }
+        }
+
+        /**
+         * الحصول على فئة لون Tailwind بناءً على الحالة.
+         * @param {'normal'|'warning'|'critical'} status - حالة المستشعر.
+         * @returns {string} - فئة لون Tailwind.
+         */
+        function getStatusColorClass(status) {
+            switch (status) {
+                case 'normal':
+                    return 'text-green-500';
+                case 'warning':
+                    return 'text-yellow-500';
+                    break;
+                case 'critical':
+                    return 'text-red-500';
+                default:
+                    return 'text-gray-500';
+            }
+        }
+
+
+        /**
+         * يتحقق من وجود تنبيهات ويضيفها إلى السجل.
+         * @param {Object} sensorData - بيانات المستشعر الواردة.
+         */
+        async function checkAlerts(sensorData) {
+            // This function needs to map the raw sheet headers to internal sensor types
+            // to check against the alertThresholds object.
+            // Example for temperature:
+            const sensorMappings = {
+                "Température (°C)": "temperature",
+                "Humidité (%)": "humidity",
+                "Vibration": "vibration",
+                "Temp. NTC (°C)": "ntc_temp",
+                "Courant (V Bruts)": "current",
+                "Batterie (V)": "battery_voltage",
+                "Accélération X": "acceleration_x",
+                "Accélération Y": "acceleration_y",
+                "Accélération Z": "acceleration_z",
+                "Gyroscope X": "gyro_x",
+                "Gyroscope Y": "gyro_y",
+                "Gyroscope Z": "gyro_z"
+            };
+
+            for (const sheetColumn in sensorMappings) {
+                const internalSensorType = sensorMappings[sheetColumn];
+                const valueToCheck = sensorData[sheetColumn];
+
+                if (valueToCheck !== undefined && !isNaN(valueToCheck)) {
+                    const status = getSensorStatus(internalSensorType, parseFloat(valueToCheck));
+                    if (status === 'warning' || status === 'critical') {
+                        const newAlert = {
+                            timestamp: new Date().toISOString(),
+                            sensorType: internalSensorType, // Use the internal sensor type key
+                            value: parseFloat(valueToCheck),
+                            unit: sensorUnitsMapping[sheetColumn] || '', // Get unit from mapping
+                            severity: status,
+                            message: `${translations['alert']}! ${translations[internalSensorType] || internalSensorType} ${parseFloat(valueToCheck).toFixed(2)}${sensorUnitsMapping[sheetColumn] || ''}. ${translations['status_is']} ${translations[status]}.`
+                        };
+                        showNotification(newAlert.message, status); // عرض إشعار في التطبيق
+                        // إضافة التنبيه إلى Firestore
+                        if (db && currentUserId) {
+                            try {
+                                await addDoc(collection(db, `artifacts/${__app_id}/users/${currentUserId}/alertLog`), newAlert);
+                            } catch (error) {
+                                console.error("خطأ في حفظ التنبيه إلى Firestore:", error);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * يجلب سجل التنبيهات من Firebase Firestore في الوقت الفعلي.
+         */
+        async function fetchAlertLog() {
+            if (!db || !currentUserId) return;
+            const alertsCollectionRef = collection(db, `artifacts/${__app_id}/users/${currentUserId}/alertLog`);
+
+            onSnapshot(query(alertsCollectionRef, orderBy('timestamp', 'desc')), (snapshot) => {
+                alertLogData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderAlertLogTable();
+            }, (error) => {
+                console.error("خطأ في جلب سجل التنبيهات:", error);
+                showNotification(`خطأ في سجل التنبيهات: ${error.message}`, "error");
+            });
+        }
+
+        let currentFilteredAlerts = [];
+
+        /**
+         * يعرض سجل التنبيهات في الجدول بناءً على الفلاتر والفرز.
+         */
+        function renderAlertLogTable() {
+            let filteredAlerts = [...alertLogData];
+
+            const severityFilter = document.getElementById('alert-severity-filter').value;
+            const sensorFilter = document.getElementById('alert-sensor-filter').value;
+            const sortOrder = document.getElementById('alert-sort-order').value;
+
+            // تطبيق فلاتر سجل التنبيهات
+            if (severityFilter !== 'all') {
+                filteredAlerts = filteredAlerts.filter(alert => alert.severity === severityFilter);
+            }
+            if (sensorFilter !== 'all') {
+                filteredAlerts = filteredAlerts.filter(alert => alert.sensorType === sensorFilter);
+            }
+
+            // فرز سجل التنبيهات
+            filteredAlerts.sort((a, b) => {
+                const dateA = new Date(a.timestamp);
+                const dateB = new Date(b.timestamp);
+                if (sortOrder === 'latest') return dateB - dateA;
+                if (sortOrder === 'oldest') return dateA - dateB;
+                // الفرز حسب نوع المستشعر (أبجديًا)
+                return (translations[a.sensorType] || a.sensorType).localeCompare(translations[b.sensorType] || b.sensorType);
+            });
+
+            currentFilteredAlerts = filteredAlerts;
+
+            const tableBody = document.getElementById('alert-log-body');
+            tableBody.innerHTML = '';
+
+            if (filteredAlerts.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">${translations['no_alerts_available']}</td></tr>`;
+                return;
+            }
+
+            filteredAlerts.forEach(alert => {
+                const tr = document.createElement('tr');
+                tr.className = 'bg-white border-b hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700';
+                let severityColorClass = '';
+                switch (alert.severity) {
+                    case 'warning':
+                        severityColorClass = 'text-yellow-500';
+                        break;
+                    case 'critical':
+                        severityColorClass = 'text-red-500';
+                        break;
+                    default:
+                        severityColorClass = 'text-gray-500';
+                }
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${new Date(alert.timestamp).toLocaleString(currentLanguage)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm ${severityColorClass} font-semibold">${translations[alert.severity] || alert.severity}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${translations[alert.sensorType] || alert.sensorType}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${alert.message}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        /**
+         * يمسح جميع التنبيهات من سجل التنبيهات في Firebase Firestore.
+         */
+        async function clearAlertLog() {
+            if (!db || !currentUserId) return;
+            // Using a simple confirm for demonstration; for a real app, use a custom modal
+            if (!window.confirm(translations['confirm_clear_alerts'])) {
+                return;
+            }
+
+            const alertsCollectionRef = collection(db, `artifacts/${__app_id}/users/${currentUserId}/alertLog`);
+            try {
+                const querySnapshot = await getDocs(alertsCollectionRef);
+                const deletePromises = [];
+                querySnapshot.forEach(docToDelete => {
+                    deletePromises.push(deleteDoc(docToDelete.ref));
+                });
+                await Promise.all(deletePromises);
+                showNotification(translations['alerts_cleared'], "success");
+            } catch (error) {
+                console.error("خطأ في مسح سجل التنبيهات:", error);
+                showNotification(`خطأ في مسح التنبيهات: ${error.message}`, "error");
+            }
+        }
+
+        /**
+         * تهيئة خيارات الفلترة لـ Alert Log
+         */
+        function populateAlertLogFilters() {
+            const sensorTypes = new Set();
+            // populate based on the internal sensorType keys from alertThresholds for consistency
+            Object.keys(alertThresholds).forEach(type => sensorTypes.add(type));
+
+            const sensorFilterSelect = document.getElementById('alert-sensor-filter');
+            sensorFilterSelect.innerHTML = `<option value="all">${translations['all_sensor_types']}</option>`;
+            sensorTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = translations[type] || type;
+                sensorFilterSelect.appendChild(option);
+            });
+        }
+
+        // --- تهيئة التطبيق عند تحميل النافذة ---
+        window.onload = async () => {
+            // جلب الترجمات الافتراضية أولاً
+            translations = getTranslations(currentLanguage); // استخدام الدالة المحدثة
+            applyTranslations(); // تطبيق الترجمات الأولية
+
+            // تهيئة Firebase والبدء في جلب البيانات
+            await initializeFirebase();
+
+            // ربط المستمعين بالأحداث
+            document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
+            document.getElementById('nav-dashboard').addEventListener('click', () => showSection('dashboard-section'));
+            document.getElementById('nav-accel-gyro').addEventListener('click', () => showSection('accel-gyro-section'));
+            document.getElementById('nav-full-table').addEventListener('click', () => showSection('full-table-section'));
+            document.getElementById('nav-charts').addEventListener('click', () => showSection('charts-section'));
+            document.getElementById('nav-alert-log').addEventListener('click', () => showSection('alert-log-section'));
+            document.getElementById('nav-alert-settings').addEventListener('click', () => showSection('alert-settings-section'));
+
+            // لوحة التحكم
+            document.getElementById('generate-insight-btn').addEventListener('click', generateInsight);
+            document.getElementById('insight-copy-btn').addEventListener('click', copyInsight);
+            document.getElementById('auto-refresh-btn').addEventListener('click', () => toggleAutoRefresh(!autoRefreshInterval));
+
+            // الجدول الكامل
+            document.getElementById('filter-apply-btn').addEventListener('click', applyTableFilters);
+            document.getElementById('filter-reset-btn').addEventListener('click', () => {
+                document.getElementById('filter-start-date').value = '';
+                document.getElementById('filter-start-time').value = '';
+                document.getElementById('filter-end-date').value = '';
+                document.getElementById('filter-end-time').value = '';
+                document.getElementById('filter-sensor-type').value = 'all';
+                document.getElementById('search-table').value = '';
+                applyTableFilters();
+            });
+            document.getElementById('search-table').addEventListener('keyup', applyTableFilters);
+
+            document.getElementById('quick-filter-1h').addEventListener('click', () => quickFilter('1h'));
+            document.getElementById('quick-filter-24h').addEventListener('click', () => quickFilter('24h'));
+            document.getElementById('quick-filter-7d').addEventListener('click', () => quickFilter('7d'));
+            document.getElementById('quick-filter-30d').addEventListener('click', () => quickFilter('30d'));
+            document.getElementById('quick-filter-all').addEventListener('click', () => quickFilter('all'));
+
+            document.getElementById('prev-page-btn').addEventListener('click', prevPage);
+            document.getElementById('next-page-btn').addEventListener('click', nextPage);
+            document.getElementById('export-csv-btn').addEventListener('click', exportToCSV);
+            document.getElementById('export-pdf-btn').addEventListener('click', exportToPDF);
+
+            // الرسوم البيانية
+            document.getElementById('apply-chart-changes-btn').addEventListener('click', applyChartSelections);
+            document.getElementById('select-all-charts-btn').addEventListener('click', selectAllChartSensors);
+            document.getElementById('reset-chart-selections-btn').addEventListener('click', resetChartSelections);
+
+            // إضافة معالجات الأحداث لأزرار "View Chart"
+            // These buttons are now more complex as they need to select specific columns from the raw data
+            // You might need to adjust the logic for how these buttons map to the new table structure.
+            document.getElementById('view-accel-x-chart-btn').addEventListener('click', () => {
+                showSection('charts-section');
+                selectedChartSensors = ['Accélération X']; // Use the actual column header
+                renderChart();
+            });
+            document.getElementById('view-accel-y-chart-btn').addEventListener('click', () => {
+                showSection('charts-section');
+                selectedChartSensors = ['Accélération Y']; // Use the actual column header
+                renderChart();
+            });
+            document.getElementById('view-accel-z-chart-btn').addEventListener('click', () => {
+                showSection('charts-section');
+                selectedChartSensors = ['Accélération Z']; // Use the actual column header
+                renderChart();
+            });
+            document.getElementById('view-gyro-x-chart-btn').addEventListener('click', () => {
+                showSection('charts-section');
+                selectedChartSensors = ['Gyroscope X']; // Use the actual column header
+                renderChart();
+            });
+            document.getElementById('view-gyro-y-chart-btn').addEventListener('click', () => {
+                showSection('charts-section');
+                selectedChartSensors = ['Gyroscope Y']; // Use the actual column header
+                renderChart();
+            });
+            document.getElementById('view-gyro-z-chart-btn').addEventListener('click', () => {
+                showSection('charts-section');
+                selectedChartSensors = ['Gyroscope Z']; // Use the actual column header
+                renderChart();
+            });
+
+
+            // سجل التنبيهات
+            document.getElementById('alert-severity-filter').addEventListener('change', renderAlertLogTable);
+            document.getElementById('alert-sensor-filter').addEventListener('change', renderAlertLogTable);
+            document.getElementById('alert-sort-order').addEventListener('change', renderAlertLogTable);
+            document.getElementById('clear-alert-log-btn').addEventListener('click', clearAlertLog);
+
+            // إعدادات التنبيه
+            document.getElementById('save-thresholds-btn').addEventListener('click', saveAlertThresholds);
+            document.getElementById('reset-thresholds-btn').addEventListener('click', resetAlertThresholds);
+
+            // مبدل اللغة
+            document.getElementById('lang-select').addEventListener('change', (e) => changeLanguage(e.target.value));
+
+
+            // تهيئة واجهة المستخدم الأولية
+            initChart(); // تهيئة Chart.js هنا لمرة واحدة
+            showSection('dashboard-section'); // عرض لوحة التحكم الافتراضية
+            populateAlertLogFilters(); // ملء فلاتر سجل التنبيهات
+        };
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .glassmorphism-card {
+            background-color: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        /* Custom styles for sidebar on smaller screens */
+        @media (max-width: 767px) {
+            #sidebar {
+                transform: translateX(-100%);
+            }
+            #sidebar.translate-x-0 {
+                transform: translateX(0);
+            }
+            #main-content.md\:ml-64 {
+                margin-left: 0 !important;
+            }
+        }
+        .notification-item {
+            transform: translateX(100%); /* Start off-screen */
+            opacity: 0;
+        }
+        .notification-item.translate-x-0 {
+            transform: translateX(0); /* Slide in */
+            opacity: 1;
+        }
+        /* Loading Overlay Styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            font-size: 1.5rem;
+            flex-direction: column;
+        }
+        .loading-spinner {
+            border: 8px solid #f3f3f3; /* Light grey */
+            border-top: 8px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+            margin-bottom: 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex min-h-screen">
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="space-y-2"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <p id="loading-message">جاري التحميل...</p>
+    </div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed inset-y-0 right-0 w-64 bg-gray-800 p-6 z-40 md:relative md:translate-x-0 transition-transform duration-300 ease-in-out shadow-lg">
+        <div class="flex items-center justify-between mb-8">
+            <h1 class="text-2xl font-bold text-blue-400" data-i18n="iot_project_2025">مشروع إنترنت الأشياء 2025</h1>
+            <button id="sidebar-toggle" class="md:hidden text-gray-400 hover:text-white focus:outline-none">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <nav>
+            <ul>
+                <li class="mb-4">
+                    <button id="nav-dashboard" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white bg-blue-700 shadow-md">
+                        <i class="fas fa-chart-line ml-3"></i> <span data-i18n="dashboard">لوحة التحكم</span>
+                    </button>
+                </li>
+                <li class="mb-4">
+                    <button id="nav-accel-gyro" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
+                        <i class="fas fa-tachometer-alt ml-3"></i> <span data-i18n="acceleration_gyro_data">بيانات التسارع والجيروسكوب</span>
+                    </button>
+                </li>
+                <li class="mb-4">
+                    <button id="nav-full-table" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
+                        <i class="fas fa-table ml-3"></i> <span data-i18n="full_table_with_filters">الجدول الكامل مع التصفية</span>
+                    </button>
+                </li>
+                <li class="mb-4">
+                    <button id="nav-charts" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
+                        <i class="fas fa-chart-area ml-3"></i> <span data-i18n="charts">الرسوم البيانية</span>
+                    </button>
+                </li>
+                <li class="mb-4">
+                    <button id="nav-alert-log" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
+                        <i class="fas fa-bell ml-3"></i> <span data-i18n="alert_log">سجل التنبيهات</span>
+                    </button>
+                </li>
+                <li class="mb-4">
+                    <button id="nav-alert-settings" class="flex items-center p-3 w-full text-right rounded-lg hover:bg-blue-600 transition-colors duration-200 focus:outline-none text-white">
+                        <i class="fas fa-cog ml-3"></i> <span data-i18n="alert_threshold_settings">إعدادات حدود التنبيه</span>
+                    </button>
+                </li>
+            </ul>
+        </nav>
+        <div class="mt-8 border-t border-gray-700 pt-4">
+            <h3 class="text-gray-400 text-sm mb-2" data-i18n="language">اللغة</h3>
+            <select id="lang-select" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
+                <option value="ar" data-i18n="arabic">العربية</option>
+                <option value="en" data-i18n="english">English</option>
+                <option value="fr" data-i18n="french">Français</option>
+            </select>
+        </div>
+        <div class="mt-4 text-sm text-gray-400">
+            <p id="user-id-display" data-i18n="user_id_placeholder">معرف المستخدم: تحميل...</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main id="main-content" class="flex-1 p-8 md:ml-64 transition-all duration-300 ease-in-out overflow-y-auto">
+        <button id="sidebar-toggle-mobile" class="md:hidden fixed top-4 right-4 z-50 p-3 rounded-full bg-blue-600 text-white shadow-lg focus:outline-none">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="content-section">
+            <h2 class="text-3xl font-bold mb-8" data-i18n="dashboard">لوحة التحكم</h2>
+
+            <!-- Sensor Data Overview -->
+            <div class="glassmorphism-card p-6 rounded-xl mb-8">
+                <h3 class="text-xl font-semibold mb-6" data-i18n="sensor_data_overview">نظرة عامة على بيانات المستشعر</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Temperature Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="temperature">درجة الحرارة</span>
+                            <i class="fas fa-thermometer-half text-blue-400 text-xl"></i>
+                        </div>
+                        <p id="temp-value" class="text-3xl font-bold text-white">-- °C</p>
+                    </div>
+                    <!-- Humidity Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="humidity">الرطوبة</span>
+                            <i class="fas fa-tint text-green-400 text-xl"></i>
+                        </div>
+                        <p id="humidity-value" class="text-3xl font-bold text-white">-- %</p>
+                    </div>
+                    <!-- Vibration Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="vibration">الاهتزاز</span>
+                            <i class="fas fa-wave-square text-purple-400 text-xl"></i>
+                        </div>
+                        <p id="vibration-value" class="text-3xl font-bold text-white">-- G</p>
+                    </div>
+                    <!-- NTC Temperature Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="ntc_temp">درجة حرارة NTC</span>
+                            <i class="fas fa-temperature-low text-orange-400 text-xl"></i>
+                        </div>
+                        <p id="ntc-temp-value" class="text-3xl font-bold text-white">-- °C</p>
+                    </div>
+                    <!-- Current Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="current">التيار</span>
+                            <i class="fas fa-bolt text-yellow-400 text-xl"></i>
+                        </div>
+                        <p id="current-value" class="text-3xl font-bold text-white">-- A</p>
+                    </div>
+                    <!-- Battery Voltage Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md hover:shadow-xl transition-all duration-300">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="battery_voltage">جهد البطارية</span>
+                            <i class="fas fa-battery-full text-red-400 text-xl"></i>
+                        </div>
+                        <p id="battery-value" class="text-3xl font-bold text-white">-- V</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Latest Full Data Record -->
+            <div class="glassmorphism-card p-6 rounded-xl mb-8">
+                <h3 class="text-xl font-semibold mb-6" data-i18n="latest_full_data_record">أحدث سجل بيانات كامل</h3>
+                <div id="latest-full-data-content" class="text-gray-300">
+                    <!-- Latest full data will be populated here by JavaScript -->
+                    <p class="text-gray-400" data-i18n="no_data_available">لا توجد بيانات متاحة.</p>
+                </div>
+            </div>
+
+            <!-- Insight Generation -->
+            <div class="glassmorphism-card p-6 rounded-xl mb-8">
+                <h3 class="text-xl font-semibold mb-6" data-i18n="generate_insight">توليد رؤى ✨</h3>
+                <button id="generate-insight-btn" class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-300 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                    <i class="fas fa-magic ml-2"></i> <span data-i18n="generate_insight">توليد رؤى ✨</span>
+                </button>
+                <div class="bg-gray-800 p-4 rounded-lg text-gray-300 relative">
+                    <p id="insight-output" class="text-sm italic" data-i18n="no_insights_generated">انقر على "توليد رؤى" للحصول على ملخص تحليلي لبيانات المستشعر.</p>
+                    <button id="insight-copy-btn" class="absolute top-2 left-2 bg-gray-700 hover:bg-gray-600 text-white text-sm py-1 px-2 rounded-md hidden transform hover:scale-105 transition-all duration-200" data-i18n="copy_insight">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Auto Refresh & User ID -->
+            <div class="flex flex-wrap items-center justify-between gap-4 glassmorphism-card p-6 rounded-xl">
+                <button id="auto-refresh-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                    <i class="fas fa-play ml-2"></i> <span data-i18n="enable_auto_refresh">تفعيل التحديث التلقائي</span>
+                </button>
+                <p id="user-id-display" class="text-gray-400 text-sm" data-i18n="user_id_placeholder">معرف المستخدم: تحميل...</p>
+            </div>
+        </section>
+
+        <!-- Acceleration & Gyro Data Section -->
+        <section id="accel-gyro-section" class="content-section hidden">
+            <h2 class="text-3xl font-bold mb-8" data-i18n="acceleration_gyro_data">بيانات التسارع والجيروسكوب</h2>
+            <div class="glassmorphism-card p-6 rounded-xl mb-8">
+                <h3 class="text-xl font-semibold mb-6" data-i18n="acceleration_data">بيانات التسارع</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- Accel X Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="acceleration_x">التسارع س</span>
+                            <i class="fas fa-square-root-alt text-teal-400 text-xl"></i>
+                        </div>
+                        <p id="accel-x-value" class="text-3xl font-bold text-white">-- G</p>
+                        <p id="accel-x-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
+                        <button id="view-accel-x-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                    </div>
+                    <!-- Accel Y Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="acceleration_y">التسارع ص</span>
+                            <i class="fas fa-square-root-alt text-teal-400 text-xl"></i>
+                        </div>
+                        <p id="accel-y-value" class="text-3xl font-bold text-white">-- G</p>
+                        <p id="accel-y-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
+                        <button id="view-accel-y-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                    </div>
+                    <!-- Accel Z Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="acceleration_z">التسارع ع</span>
+                            <i class="fas fa-square-root-alt text-teal-400 text-xl"></i>
+                        </div>
+                        <p id="accel-z-value" class="text-3xl font-bold text-white">-- G</p>
+                        <p id="accel-z-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
+                        <button id="view-accel-z-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                    </div>
+                </div>
+
+                <h3 class="text-xl font-semibold mb-6" data-i18n="gyroscope_data">بيانات الجيروسكوب</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Gyro X Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="gyro_x">جيروسكوب س</span>
+                            <i class="fas fa-compass text-pink-400 text-xl"></i>
+                        </div>
+                        <p id="gyro-x-value" class="text-3xl font-bold text-white">-- deg/s</p>
+                        <p id="gyro-x-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
+                        <button id="view-gyro-x-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                    </div>
+                    <!-- Gyro Y Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="gyro_y">جيروسكوب ص</span>
+                            <i class="fas fa-compass text-pink-400 text-xl"></i>
+                        </div>
+                        <p id="gyro-y-value" class="text-3xl font-bold text-white">-- deg/s</p>
+                        <p id="gyro-y-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
+                        <button id="view-gyro-y-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                    </div>
+                    <!-- Gyro Z Card -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-400 text-sm" data-i18n="gyro_z">جيروسكوب ع</span>
+                            <i class="fas fa-compass text-pink-400 text-xl"></i>
+                        </div>
+                        <p id="gyro-z-value" class="text-3xl font-bold text-white">-- deg/s</p>
+                        <p id="gyro-z-status" class="text-sm font-semibold text-gray-500" data-i18n="normal">عادي</p>
+                        <button id="view-gyro-z-chart-btn" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-200" data-i18n="view_chart">عرض الرسم البياني</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Full Table with Filters Section -->
+        <section id="full-table-section" class="content-section hidden">
+            <h2 class="text-3xl font-bold mb-8" data-i18n="full_table_with_filters">الجدول الكامل مع التصفية</h2>
+
+            <!-- Filter Controls -->
+            <div class="glassmorphism-card p-6 rounded-xl mb-8">
+                <h3 class="text-xl font-semibold mb-6" data-i18n="filter_data">تصفية البيانات</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    <div>
+                        <label for="filter-start-date" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="start_date">تاريخ البدء</label>
+                        <input type="date" id="filter-start-date" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                    </div>
+                    <div>
+                        <label for="filter-start-time" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="start_time">وقت البدء</label>
+                        <input type="time" id="filter-start-time" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                    </div>
+                    <div>
+                        <label for="filter-end-date" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="end_date">تاريخ الانتهاء</label>
+                        <input type="date" id="filter-end-date" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                    </div>
+                    <div>
+                        <label for="filter-end-time" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="end_time">وقت الانتهاء</label>
+                        <input type="time" id="filter-end-time" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label for="filter-sensor-type" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="sensor_type">نوع المستشعر</label>
+                        <select id="filter-sensor-type" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <option value="all" data-i18n="all_sensor_types">جميع أنواع المستشعرات</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end gap-2">
+                        <button id="filter-apply-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full" data-i18n="apply_filters">تطبيق الفلاتر</button>
+                        <button id="filter-reset-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full" data-i18n="reset_filters">إعادة تعيين</button>
+                    </div>
+                    <div>
+                        <label for="search-table" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="search_table">بحث في الجدول...</label>
+                        <input type="text" id="search-table" placeholder="بحث..." class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <h4 class="text-gray-300 text-sm font-medium mb-2" data-i18n="quick_filters">فلاتر سريعة</h4>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="quick-filter-1h" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_hour">آخر ساعة</button>
+                        <button id="quick-filter-24h" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_24_hours">آخر 24 ساعة</button>
+                        <button id="quick-filter-7d" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_7_days">آخر 7 أيام</button>
+                        <button id="quick-filter-30d" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="last_30_days">آخر 30 يومًا</button>
+                        <button id="quick-filter-all" class="bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-4 rounded-lg transition-colors duration-200" data-i18n="all_time">جميع الأوقات</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sensor Data Table -->
+            <div id="full-table-container" class="glassmorphism-card p-6 rounded-xl overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-700">
+                    <thead class="bg-gray-800">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Heure</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Température (°C)</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Humidité (%)</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Accélération X</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Accélération Y</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Accélération Z</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Gyroscope X</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Gyroscope Y</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Gyroscope Z</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Vibration</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Temp. NTC (°C)</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Courant (V Bruts)</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Batterie (V)</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="device_id">معرف الجهاز</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sensor-table-body" class="bg-gray-900 divide-y divide-gray-800">
+                        <!-- Table rows will be populated by JavaScript -->
+                    </tbody>
+                </table>
+
+                <!-- Pagination Controls -->
+                <div class="flex justify-between items-center mt-6">
+                    <button id="prev-page-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" data-i18n="previous">السابق</button>
+                    <span id="page-info" class="text-gray-300" data-i18n="page_info_placeholder">صفحة 1 من 1</span>
+                    <button id="next-page-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" data-i18n="next">التالي</button>
+                </div>
+
+                <!-- Export Buttons -->
+                <div class="flex justify-end gap-4 mt-6">
+                    <button id="export-csv-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="export_to_csv">تصدير إلى CSV</button>
+                    <button id="export-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="export_to_pdf">تصدير إلى PDF</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section id="charts-section" class="content-section hidden">
+            <h2 class="text-3xl font-bold mb-8" data-i18n="charts">الرسوم البيانية</h2>
+            <div class="glassmorphism-card p-6 rounded-xl mb-8">
+                <h3 class="text-xl font-semibold mb-6" data-i18n="select_sensors_for_charts">اختر المستشعرات للرسوم البيانية</h3>
+                <div id="chart-sensor-select" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+                    <!-- Checkboxes for sensor selection will be populated by JavaScript -->
+                </div>
+                <div class="flex flex-wrap gap-4 mb-8">
+                    <button id="select-all-charts-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="select_all">تحديد الكل</button>
+                    <button id="reset-chart-selections-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="reset_selections">إعادة تعيين التحديدات</button>
+                    <button id="apply-chart-changes-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="apply_changes">تطبيق التغييرات</button>
+                </div>
+
+                <!-- Chart Canvas -->
+                <div class="relative h-96 w-full mb-6">
+                    <canvas id="sensorChart" class="bg-gray-800 rounded-lg shadow-lg"></canvas>
+                </div>
+
+                <!-- Chart Statistics -->
+                <div class="flex justify-around items-center bg-gray-800 p-4 rounded-lg shadow-md text-lg font-semibold">
+                    <span id="chart-stats-min" data-i18n="min_placeholder">الحد الأدنى: N/A</span>
+                    <span id="chart-stats-max" data-i18n="max_placeholder">الحد الأقصى: N/A</span>
+                    <span id="chart-stats-avg" data-i18n="avg_placeholder">المتوسط: N/A</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Alert Log Section -->
+        <section id="alert-log-section" class="content-section hidden">
+            <h2 class="text-3xl font-bold mb-8" data-i18n="alert_log">سجل التنبيهات</h2>
+            <div class="glassmorphism-card p-6 rounded-xl mb-8">
+                <div class="flex flex-wrap items-center gap-4 mb-6">
+                    <div>
+                        <label for="alert-severity-filter" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="alert_severity">خطورة التنبيه</label>
+                        <select id="alert-severity-filter" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <option value="all" data-i18n="all">الكل</option>
+                            <option value="critical" data-i18n="critical">حرج</option>
+                            <option value="warning" data-i18n="warning">تحذير</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="alert-sensor-filter" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="sensor_type">نوع المستشعر</label>
+                        <select id="alert-sensor-filter" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <option value="all" data-i18n="all_sensor_types">جميع أنواع المستشعرات</option>
+                            <!-- Sensor types will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="alert-sort-order" class="block text-gray-300 text-sm font-medium mb-1" data-i18n="sort_by">فرز حسب</label>
+                        <select id="alert-sort-order" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <option value="latest" data-i18n="latest_first">الأحدث أولاً</option>
+                            <option value="oldest" data-i18n="oldest_first">الأقدم أولاً</option>
+                            <option value="sensorType" data-i18n="sensor_type_asc">نوع المستشعر (تصاعدي)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end flex-grow justify-end">
+                        <button id="clear-alert-log-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="clear_alert_log">مسح سجل التنبيهات</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="bg-gray-800">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="timestamp">الطابع الزمني</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="alert_severity">خطورة التنبيه</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="sensor_type">نوع المستشعر</th>
+                                <th scope="col" class="px-6 py-4 text-right text-xs font-medium text-gray-300 uppercase tracking-wider" data-i18n="message">الرسالة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alert-log-body" class="bg-gray-900 divide-y divide-gray-800">
+                            <!-- Alert log rows will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Alert Threshold Settings Section -->
+        <section id="alert-settings-section" class="content-section hidden">
+            <h2 class="text-3xl font-bold mb-8" data-i18n="alert_threshold_settings">إعدادات حدود التنبيه</h2>
+            <div class="glassmorphism-card p-6 rounded-xl mb-8">
+                <h3 class="text-xl font-semibold mb-6" data-i18n="threshold_settings">إعدادات الحدود</h3>
+
+                <div class="grid grid-cols-1 gap-6">
+                    <!-- Sensor Threshold Template (will be repeated for each sensor) -->
+                    <!-- Temperature -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="temperature">درجة الحرارة</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="temperature-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="temperature-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="temperature-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="temperature-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="temperature-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="temperature-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                    <!-- Humidity -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="humidity">الرطوبة</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="humidity-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="humidity-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="humidity-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="humidity-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="humidity-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="humidity-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                     <!-- Vibration -->
+                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="vibration">الاهتزاز</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="vibration-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="vibration-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="vibration-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="vibration-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="vibration-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="vibration-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                     <!-- NTC Temperature -->
+                     <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="ntc_temp">درجة حرارة NTC</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="ntc_temp-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="ntc_temp-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="ntc_temp-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="ntc_temp-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="ntc_temp-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="ntc_temp-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                    <!-- Current -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="current">التيار</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="current-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="current-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="current-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="current-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="current-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="current-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                    <!-- Battery Voltage -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="battery_voltage">جهد البطارية</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="battery_voltage-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="battery_voltage-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="battery_voltage-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="battery_voltage-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="battery_voltage-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="battery_voltage-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                    <!-- Acceleration X -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="acceleration_x">التسارع س</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="acceleration_x-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="acceleration_x-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="acceleration_x-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="acceleration_x-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="acceleration_x-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="acceleration_x-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                    <!-- Acceleration Y -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="acceleration_y">التسارع ص</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="acceleration_y-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="acceleration_y-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="acceleration_y-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="acceleration_y-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="acceleration_y-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="acceleration_y-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                    <!-- Acceleration Z -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="acceleration_z">التسارع ع</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="acceleration_z-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="acceleration_z-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="acceleration_z-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="acceleration_z-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="acceleration_z-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="acceleration_z-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                    <!-- Gyro X -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="gyro_x">جيروسكوب س</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="gyro_x-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_x-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="gyro_x-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_x-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="gyro_x-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_x-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                    <!-- Gyro Y -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="gyro_y">جيروسكوب ص</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="gyro_y-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_y-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="gyro_y-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_y-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="gyro_y-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_y-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                    <!-- Gyro Z -->
+                    <div class="bg-gray-800 p-5 rounded-lg shadow-md">
+                        <h4 class="text-lg font-bold mb-4" data-i18n="gyro_z">جيروسكوب ع</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="text-gray-400 font-medium" data-i18n="level">المستوى</div>
+                            <div class="text-gray-400 font-medium" data-i18n="min_value">الحد الأدنى للقيمة</div>
+                            <div class="text-gray-400 font-medium" data-i18n="max_value">الحد الأقصى للقيمة</div>
+
+                            <span class="text-green-400" data-i18n="normal">عادي</span>
+                            <input type="number" step="0.1" id="gyro_z-normal-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_z-normal-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-yellow-400" data-i18n="warning">تحذير</span>
+                            <input type="number" step="0.1" id="gyro_z-warning-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_z-warning-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+
+                            <span class="text-red-400" data-i18n="critical">حرج</span>
+                            <input type="number" step="0.1" id="gyro_z-critical-min" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                            <input type="number" step="0.1" id="gyro_z-critical-max" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white">
+                        </div>
+                    </div>
+                    <!-- End Sensor Threshold Template -->
+                </div>
+
+                <div class="flex justify-end gap-4 mt-6">
+                    <button id="save-thresholds-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="save_changes">حفظ التغييرات</button>
+                    <button id="reset-thresholds-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200" data-i18n="reset_to_defaults">إعادة تعيين إلى الافتراضيات</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
 </body>
 </html>
